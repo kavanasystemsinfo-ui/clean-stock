@@ -82,6 +82,8 @@ describe('stockController.consumeStock', () => {
     });
     res = httpMocks.createResponse();
     jest.clearAllMocks();
+    // Mock reglaNotificacion to return empty (no notification rules active)
+    mockPrisma.reglaNotificacion.findMany.mockResolvedValue([]);
   });
 
   test('should resolve active center and consume stock for limpiador', async () => {

@@ -2,10 +2,10 @@
 
 > **Document Type:** Technical Architecture Specification
 > **Audience:** IT Consultants, Senior Developers, Technical Stakeholders
-> **Version:** 5.0.0
+> **Version:** 6.0.0
 > **Swagger API Version:** 4.0.0
-> **Last Updated:** 2026-06-05
-> **Status:** Implemented — Backend API v1.3 + Mobile PWA v2.0 (Limpiador App) + Dashboard Supervisor v3.0 + Socket.IO Real-time v5.0 + Full Docker Deployment v4.0
+> **Last Updated:** 2026-06-06
+> **Status:** Implemented — Backend API v1.3 + Mobile PWA v2.0 (Limpiador App) + Dashboard Supervisor v3.0 + Socket.IO Real-time v5.0 + Full Docker Deployment v4.0 + Enterprise Modules v6.0 (OPEX, Deviations, Incidents, Purchases, Notifications)
 
 ---
 
@@ -87,8 +87,32 @@
 │  └──────────────────┘                                            │
 │  ┌────────────────────────────────────────────────────────────────┐ │
 │  │                   dashboardCtrl                               │ │
-│  │                   - consumption (analytics, grouped by center) │ │
-│  │                   - alerts (critical + warning separation)    │ │
+│  │  - consumption (analytics + OPEX: coste_unitario,             │ │
+│  │    presupuesto_mensual, gasto_total_euros,                    │ │
+│  │    porcentaje_consumido)                                      │ │
+│  │  - alerts (critical + warning separation)                     │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │              deviationController (NUEVO)                      │ │
+│  │  - getDeviations: compara consumo real vs. teórico            │ │
+│  │    por centro/producto/mes, calcula desviación,               │ │
+│  │    porcentaje y coste de desviación                           │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │             incidenciaController (NUEVO)                      │ │
+│  │  - createIncidencia: reporte con categoría, título, foto      │ │
+│  │  - listIncidencias: filtros por centro/estado/categoría       │ │
+│  │  - updateIncidencia: workflow pendiente→en_proceso→resuelta   │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │             purchaseController (NUEVO)                        │ │
+│  │  - getProposal: analiza inventario, calcula déficit,          │ │
+│  │    genera pedido recomendado con coste estimado               │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │           notificationsController (NUEVO)                     │ │
+│  │  - getNotifications / markAsRead: historial de notificaciones │ │
+│  │  - getRules / createRule / deleteRule: CRUD reglas            │ │
 │  └────────────────────────────────────────────────────────────────┘ │
 │                                                                     │
 │  ┌────────────────────────────────────────────────────────────────┐ │
@@ -99,10 +123,15 @@
 │  │  │ Filtros,   │ │Críticas│ │CRUD Table  │ │ Stock +      │   │ │
 │  │  │ tabla,     │ │+ Warn, │ │+ Modal     │ │ Restock      │   │ │
 │  │  │ CSV export │ │ CSV    │ │Create/Edit │ │ Modal        │   │ │
-│  │  │            │ │◄───────│ │            │ │◄─────────────│   │ │
-│  │  │            │ │stock:  │ │            │ │stock:consumed│   │ │
-│  │  │            │ │alert   │ │            │ │stock:restocked│  │ │
+│  │  │ OPEX €     │ │◄───────│ │            │ │◄─────────────│   │ │
 │  │  └────────────┘ └────────┘ └────────────┘ └──────────────┘   │ │
+│  │  ┌────────────┐ ┌────────────┐ ┌──────────────────────┐      │ │
+│  │  │Deviations  │ │ Incidents  │ │ Notifications        │      │ │
+│  │  │Teórico vs  │ │ Bandeja    │ │ Historial + Reglas   │      │ │
+│  │  │Real,       │ │ Filtros,   │ │ Crear/Eliminar      │      │ │
+│  │  │CSV export  │ │ Cambio     │ │ Reglas              │      │ │
+│  │  │            │ │ Estado     │ │                     │      │ │
+│  │  └────────────┘ └────────────┘ └──────────────────────┘      │ │
 │  │                                                                 │ │
 │  │  ┌──────────────────────────────────────────────────────────┐ │ │
 │  │  │   lib/api.ts    — JWT auth + refresh token rotation      │ │ │
@@ -123,6 +152,8 @@
 │  │                   PostgreSQL Database                        │   │
 │  │  usuarios │ centros │ productos │ asignaciones_personal      │   │
 │  │  inventario_centros │ registro_movimientos │ refresh_tokens  │   │
+│  │  consumo_teorico │ incidencias │ reglas_notificacion         │   │
+│  │  notificaciones                                              │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```

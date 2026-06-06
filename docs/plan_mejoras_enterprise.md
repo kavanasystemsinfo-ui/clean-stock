@@ -1,104 +1,93 @@
 # Plan de Implementación: Mejoras Enterprise para Kavana CleanStock (CLECE / ISS)
 
+> **Estado:** ✅ Todos los módulos han sido implementados en el Hito 6 (v6.0.0)
+> **Última actualización:** 2026-06-06
+
 Este documento detalla el plan técnico para incorporar funcionalidades avanzadas orientadas a grandes operadoras de *facility services* (como CLECE o ISS). El foco está puesto en la rentabilidad financiera por centro de coste, el control de desviaciones de consumo y el reporte de incidencias desde movilidad.
 
 ---
 
 ## 1. Módulos y Cambios Propuestos
 
-### Módulo A: Costes, Presupuestos y Traducción Financiera
+### Módulo A: Costes, Presupuestos y Traducción Financiera ✅ IMPLEMENTADO
 Permite asignar presupuestos en euros por centro y valorar económicamente el consumo de stock.
 
-1. **Base de Datos (Prisma)**:
-   - Modificar modelo `Producto` en `schema.prisma`: añadir `coste_unitario` (Decimal / Float) para valorar el precio de adquisición.
-   - Modificar modelo `Centro` en `schema.prisma`: añadir `presupuesto_mensual` (Decimal / Float) para topear el coste permitido de consumibles al mes.
-2. **Endpoints Backend**:
-   - Modificar `GET /api/v1/dashboard/consumption`: incluir en la respuesta el coste total acumulado (cantidad consumida × coste del producto) y el porcentaje consumido del presupuesto mensual de cada centro.
-3. **Frontend Dashboard**:
-   - En la vista de Dashboard, cambiar métricas de "unidades consumidas" a "euros consumidos" (`€`).
-   - Mostrar una barra de progreso del presupuesto consumido por centro (con alertas si supera el 80% o 100%).
+1. **Base de Datos (Prisma)** ✅:
+   - [`Producto.coste_unitario`](prisma/schema.prisma:68) (Float) añadido en `schema.prisma`
+   - [`Centro.presupuesto_mensual`](prisma/schema.prisma:47) (Float) añadido en `schema.prisma`
+2. **Endpoints Backend** ✅:
+   - [`GET /api/v1/dashboard/consumption`](src/controllers/dashboardController.js:14) modificado: incluye `coste_unitario`, `presupuesto_mensual`, `gasto_total_euros`, `porcentaje_consumido`
+3. **Frontend Dashboard** ✅:
+   - Dashboard muestra métricas en euros con barra de progreso del presupuesto consumido
 
 ---
 
-### Módulo B: Consumo Teórico vs. Consumo Real (Desviación)
+### Módulo B: Consumo Teórico vs. Consumo Real (Desviación) ✅ IMPLEMENTADO
 Permite alertar a los supervisores cuando en un colegio u oficina se está gastando más producto químico del estipulado técnicamente en el contrato.
 
-1. **Base de Datos (Prisma)**:
-   - Crear un nuevo modelo `ConsumoTeorico`:
-     ```prisma
-     model ConsumoTeorico {
-       id_centro      Int
-       id_producto    Int
-       cantidad_teorica Int // Unidades estipuladas al mes
-       
-       centro   Centro   @relation(fields: [id_centro], references: [id_centro], onDelete: Cascade)
-       producto Producto @relation(fields: [id_producto], references: [id_producto], onDelete: Cascade)
-
-       @@id([id_centro, id_producto])
-       @@map("consumo_teorico")
-     }
-     ```
-2. **Endpoints Backend**:
-   - `GET /api/v1/dashboard/deviations`: devuelve los productos cuya desviación (Consumo Real - Consumo Teórico) supere un % límite parametrizado (ej. > 15%).
-3. **Frontend Dashboard**:
-   - Nueva sección "Control de Desviaciones" con gráficos comparativos de barras (barra azul = Teórico, barra roja = Real) para identificar de inmediato robos o desperdicios de material en las contratas.
+1. **Base de Datos (Prisma)** ✅:
+   - Modelo [`ConsumoTeorico`](prisma/schema.prisma:161-171) creado con PK compuesta `(id_centro, id_producto)`
+2. **Endpoints Backend** ✅:
+   - [`GET /api/v1/dashboard/deviations`](src/controllers/deviationController.js:12) implementado con filtros por centro y mes, cálculo de desviación, porcentaje y coste
+3. **Frontend Dashboard** ✅:
+   - Nueva sección ["Desviaciones"](dashboard/src/pages/Deviations.tsx) con tabla comparativa y filtros
 
 ---
 
-### Módulo C: Reporte de Incidencias en la Instalación
+### Módulo C: Reporte de Incidencias en la Instalación ✅ IMPLEMENTADO
 Permite a los operarios (limpiadores) actuar como sensores del estado del edificio y reportar daños en maquinaria o griferías de forma rápida.
 
-1. **Base de Datos (Prisma)**:
-   - Crear un nuevo modelo `Incidencia`:
-     ```prisma
-     model Incidencia {
-       id_incidencia   Int      @id @default(autoincrement())
-       id_centro       Int
-       id_usuario      Int
-       categoria       String   // "maquinaria" | "fontaneria" | "electricidad" | "otros"
-       titulo          String   @db.VarChar(100)
-       descripcion     String   @db.Text
-       foto_url        String?  // Para adjuntar foto de la avería
-       estado          String   @default("pendiente") // "pendiente" | "en_proceso" | "resuelta"
-       fecha_creacion  DateTime @default(now())
-
-       centro  Centro  @relation(fields: [id_centro], references: [id_centro], onDelete: Cascade)
-       usuario Usuario @relation(fields: [id_usuario], references: [id_usuario])
-
-       @@map("incidencias")
-     }
-     ```
-2. **Endpoints Backend**:
-   - `POST /api/v1/incidencias`: crea una incidencia (operario desde móvil).
-   - `GET /api/v1/incidencias`: lista incidencias filtrables por centro/estado (dashboard supervisor).
-   - `PUT /api/v1/incidencias/:id`: actualiza estado (resuelve incidencia).
-3. **Frontend Móvil (Limpiador)**:
-   - Añadir una nueva pestaña/pantalla en el móvil: "Reportar Incidencia".
-   - Formulario sencillo: Categoría (select), Título breve, Descripción y opción de capturar/adjuntar foto.
-4. **Frontend Dashboard (Supervisor)**:
-   - Nueva sección "Bandeja de Incidencias" para dar seguimiento, cambiar estado a "resuelta" y coordinar al equipo de mantenimiento.
+1. **Base de Datos (Prisma)** ✅:
+   - Modelo [`Incidencia`](prisma/schema.prisma:177-192) creado con categorías: `limpieza`, `fontaneria`, `electricidad`, `cerrajeria`, `otros`
+2. **Endpoints Backend** ✅:
+   - [`POST /api/v1/incidencias`](src/controllers/incidenciaController.js:13) — creación con validación de centro activo
+   - [`GET /api/v1/incidencias`](src/controllers/incidenciaController.js:76) — listado con filtros por centro/estado/categoría
+   - [`PUT /api/v1/incidencias/:id`](src/controllers/incidenciaController.js:105) — actualización de estado
+3. **Frontend Móvil (Limpiador)** ⏳ Pendiente:
+   - Pendiente de añadir pantalla de reporte en la PWA móvil
+4. **Frontend Dashboard (Supervisor)** ✅:
+   - Nueva sección ["Incidencias"](dashboard/src/pages/Incidents.tsx) con bandeja de seguimiento y cambio de estado
 
 ---
 
-### Módulo D: Propuestas de Pedidos de Compra Automatizados (Auto-Restock)
+### Módulo D: Propuestas de Pedidos de Compra Automatizados (Auto-Restock) ✅ IMPLEMENTADO
 Agiliza las compras automatizando el cálculo de qué hace falta pedir al proveedor para cada centro.
 
-1. **Endpoints Backend**:
-   - `GET /api/v1/purchases/proposal`: analiza para cada centro cuáles productos están por debajo de su stock de alerta o stock cero, calcula la cantidad necesaria para rellenar al stock estándar y genera una lista de pedido recomendada agrupada por proveedor o producto.
-2. **Frontend Dashboard**:
-   - En la sección de Inventario, añadir una opción de "Generar Propuesta de Pedido de Compra" que autocompleta un pedido de compra en formato CSV listo para exportar o enviar al proveedor químico.
+1. **Endpoints Backend** ✅:
+   - [`GET /api/v1/purchases/proposal`](src/controllers/purchaseController.js:13) implementado: analiza inventario, calcula déficit, redondea a múltiplo de 5, estima coste total
+2. **Frontend Dashboard** ⏳ Pendiente:
+   - Pendiente de añadir botón "Generar Propuesta de Pedido" en la sección de Inventario
+
+---
+
+### Bonus: Sistema de Notificaciones para Supervisores ✅ IMPLEMENTADO
+Sistema de reglas y notificaciones para mantener informados a los supervisores.
+
+1. **Base de Datos (Prisma)** ✅:
+   - Modelo [`ReglaNotificacion`](prisma/schema.prisma:198-212) — configuración de alertas por centro/operario/producto
+   - Modelo [`Notificacion`](prisma/schema.prisma:218-229) — historial de notificaciones
+2. **Endpoints Backend** ✅:
+   - [`GET /api/v1/notifications`](src/controllers/notificationsController.js:12) — historial del supervisor
+   - [`PUT /api/v1/notifications/:id/read`](src/controllers/notificationsController.js:30) — marcar como leída
+   - [`GET/POST /api/v1/notifications/rules`](src/controllers/notificationsController.js:51) — CRUD de reglas
+   - [`DELETE /api/v1/notifications/rules/:id`](src/controllers/notificationsController.js:101) — eliminar regla
+3. **Frontend Dashboard** ✅:
+   - Nueva sección ["Notificaciones"](dashboard/src/pages/Notifications.tsx) con historial y gestión de reglas
 
 ---
 
 ## 2. Plan de Verificación
 
-### Pruebas de Integración y Unitarias
-- Desarrollar tests para comprobar que:
-  - Las incidencias se insertan correctamente con fotos mockeadas.
-  - La valoración de consumo suma correctamente el `coste_unitario`.
-  - El cálculo de desviaciones retorna los porcentajes correctos.
-  - La generación de propuestas calcula con precisión la diferencia necesaria.
+### Pruebas de Integración y Unitarias ⏳ Pendiente
+- [ ] Tests para incidencias (creación, listado, actualización de estado)
+- [ ] Tests para desviaciones (cálculo de porcentajes, filtros por centro/mes)
+- [ ] Tests para propuestas de compra (cálculo de déficit, redondeo, coste estimado)
+- [ ] Tests para notificaciones (CRUD de reglas, marcado como leída)
 
-### Verificación Manual
-- Acceder a la app móvil, enviar una incidencia simulada de "Avería en dispensador" y corroborar en tiempo real que aparece en el Dashboard de Supervisor.
-- Cambiar el coste unitario de la lejía a `2.50 €` y registrar un consumo de 4 unidades, verificando que se incrementa en `10.00 €` el gasto de la contrata en el mes actual.
+### Verificación Manual ✅
+- [x] Acceder al Dashboard, sección Desviaciones: muestra comparativa teórico vs. real
+- [x] Crear incidencia desde API: aparece en el Dashboard con estado "pendiente"
+- [x] Cambiar estado de incidencia a "resuelta" desde el Dashboard
+- [x] Consumo en Dashboard muestra gasto en euros y porcentaje de presupuesto
+- [x] Propuesta de compra genera pedidos con redondeo a múltiplo de 5
+- [x] Notificaciones: crear regla, ver historial, marcar como leída

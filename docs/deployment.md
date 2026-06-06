@@ -2,8 +2,8 @@
 
 > **Document Type:** Technical Deployment Guide
 > **Target:** DevOps, IT Operations
-> **Version:** 1.0.0
-> **Last Updated:** 2026-06-04
+> **Version:** 2.0.0
+> **Last Updated:** 2026-06-06
 
 ---
 
@@ -298,3 +298,273 @@ docker compose up -d
 | [`start.bat`](start.bat) | **Lanzador de desarrollo local** (Windows) — inicia BD + API + frontends |
 | [`.env`](.env) | Environment variables (local dev defaults) |
 | [`.dockerignore`](.dockerignore) | Excludes node_modules, logs, docs from Docker context |
+
+---
+
+## Deploy en Producción (Cloud)
+
+Tu proyecto tiene 3 componentes que desplegar:
+
+| Componente | Tecnología | Dónde desplegarlo |
+|------------|-----------|-------------------|
+| **API** (Express + Socket.IO + Prisma) | Node.js | Railway ⭐ o Render |
+| **PostgreSQL** | Base de datos | Railway (incluida) ⭐ o Render |
+| **Dashboard** (React + TypeScript) | Frontend SPA | Vercel |
+| **Mobile PWA** (React + TypeScript) | Frontend SPA + PWA | Vercel |
+
+### Comparativa de Plataformas para API + BD
+
+| Plataforma | Coste/mes | WebSocket | PostgreSQL | Facilidad |
+|------------|-----------|-----------|------------|-----------|
+| **Railway ⭐** | **$5/mes** | ✅ Sí | ✅ Incluido | ✅ Muy fácil |
+| Render | $14/mes ($7 API + $7 BD) | ✅ (plan Starter) | ✅ Aparte | ✅ Fácil |
+| Fly.io | ~$5/mes | ✅ Sí | ✅ Volumen | ⚠️ Media |
+| Vercel + Neon | ~$0/mes | ❌ No serverless | ✅ Neon gratis | ⚠️ Media |
+
+**👉 Recomendación: Railway + Vercel** — Es la opción más barata, PostgreSQL incluido, WebSocket funciona, y el deploy es idéntico a Render.
+
+---
+
+## Opción A: Railway + Vercel ⭐ RECOMENDADA
+
+### Arquitectura
+
+```
+                         ┌─────────────────────────────────────┐
+                         │       kavanasystems.com             │
+                         │         (Vercel)                    │
+                         │                                     │
+                         │  ┌──────────────────────────────┐   │
+                         │  │  Dashboard (Supervisor)      │   │
+                         │  │  https://kavanasystems.com   │   │
+                         │  │  → /api/* → railway.app      │   │
+                         │  │  → /socket.io → railway.app  │   │
+                         │  └──────────────────────────────┘   │
+                         │  ┌──────────────────────────────┐   │
+                         │  │  Mobile PWA (Limpiador)      │   │
+                         │  │  https://app.kavanasystems.com│   │
+                         │  │  → /api/* → railway.app      │   │
+                         │  └──────────────────────────────┘   │
+                         └──────────────┬──────────────────────┘
+                                        │
+                                        ▼
+                         ┌──────────────────────────────────────┐
+                         │     Railway (API + DB)               │
+                         │                                      │
+                         │  ┌──────────────┐  ┌──────────────┐  │
+                         │  │  PostgreSQL  │  │  API Express  │  │
+                         │  │  (Railway)   │◄─│  Node.js      │  │
+                         │  │  :5432       │  │  :3000        │  │
+                         │  └──────────────┘  │  + Socket.IO  │  │
+                         │                    └──────────────┘  │
+                         └──────────────────────────────────────┘
+```
+
+### Paso 1: Railway — API + PostgreSQL
+
+Railway es la plataforma más sencilla porque **la base de datos viene incluida** y se conecta automáticamente.
+
+1. Ve a [Railway Dashboard](https://railway.app) → **New Project**
+2. Selecciona **Deploy from GitHub repo** → conecta tu repositorio
+3. Railway detecta automáticamente que es un proyecto Node.js
+4. **Añade PostgreSQL:** Click en **New** → **Database** → **Add PostgreSQL**
+   - Railway crea la BD y **auto-inyecta** la variable `DATABASE_URL` en la API
+   - No necesitas configurar nada manualmente
+5. Configura la API (Railway lo hace casi todo automático, pero verifica):
+   - **Build Command:** `npm install && npx prisma generate`
+   - **Start Command:** `npx prisma migrate deploy && node prisma/seed.js && node src/server.js`
+   - **Root Directory:** dejarlo vacío (el proyecto raíz)
+6. **Environment Variables** (añadir manualmente):
+
+   | Variable | Valor | Cómo generarlo |
+   |----------|-------|----------------|
+   | `JWT_SECRET` | `tu_secreto_fuerte` | `openssl rand -base64 32` en tu terminal |
+   | `JWT_EXPIRES_IN` | `15m` | |
+   | `REFRESH_TOKEN_EXPIRY_DAYS` | `30` | |
+   | `NODE_ENV` | `production` | |
+   | `CORS_ORIGIN` | `https://kavanasystems.com,https://app.kavanasystems.com` | |
+
+   > `DATABASE_URL` la inyecta Railway automáticamente. No la añadas manualmente.
+
+7. Railway hará el build y deploy automáticamente.
+8. Una vez desplegado, ve a **Settings** → **Domains** → **Generate Domain**
+   - Obtendrás una URL como: `https://kavana-cleanstock-api.up.railway.app`
+   - (Opcional) Puedes configurar un dominio personalizado como `api.kavanasystems.com`
+
+### Paso 2: Vercel — Dashboard (Supervisor)
+
+El Dashboard irá en la raíz de `kavanasystems.com`.
+
+1. Ve a [Vercel Dashboard](https://vercel.com) → **Add New** → **Project**
+2. Importa tu repositorio de GitHub
+3. Configura:
+   - **Root Directory:** `dashboard`
+   - **Framework Preset:** `Vite`
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+4. **Environment Variables:** No necesitas ninguna (las rutas API se resuelven via `vercel.json`)
+5. **Domain:** Configura `kavanasystems.com` en Settings → Domains
+6. El archivo [`dashboard/vercel.json`](dashboard/vercel.json) ya está creado. Solo cambia la URL de Railway:
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://KAVANA-API-URL.up.railway.app/api/:path*" },
+    { "source": "/socket.io/:path*", "destination": "https://KAVANA-API-URL.up.railway.app/socket.io/:path*" },
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
+```
+
+### Paso 3: Vercel — Mobile PWA (Limpiador)
+
+La app móvil en `app.kavanasystems.com`.
+
+1. En Vercel → **Add New** → **Project**
+2. Mismo repositorio:
+   - **Root Directory:** `mobile`
+   - **Framework Preset:** `Vite`
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+3. **Domain:** Configura `app.kavanasystems.com`
+4. El archivo [`mobile/vercel.json`](mobile/vercel.json) ya está creado. Cambia la URL de Railway:
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://KAVANA-API-URL.up.railway.app/api/:path*" },
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Service-Worker-Allowed", "value": "/" },
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}
+```
+
+### Paso 4: Configurar dominio kavanasystems.com
+
+1. En Vercel: Proyecto Dashboard → **Settings** → **Domains** → añade `kavanasystems.com`
+2. Vercel te dará los nameservers a los que apuntar tu dominio
+3. Ve a tu proveedor de dominio (donde compraste kavanasystems.com) y cambia los nameservers por los de Vercel
+4. Para `app.kavanasystems.com`: en el proyecto Mobile → **Settings** → **Domains** → añade `app.kavanasystems.com`
+
+### Paso 5: Verificar
+
+```bash
+# Health check
+curl https://KAVANA-API-URL.up.railway.app/health
+
+# Login de prueba
+curl -X POST https://KAVANA-API-URL.up.railway.app/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"supervisor@kavana.com","password":"SuperKavana2026!"}'
+
+# Swagger docs
+# https://KAVANA-API-URL.up.railway.app/api-docs
+
+# Dashboard
+# https://kavanasystems.com
+
+# Mobile PWA
+# https://app.kavanasystems.com
+```
+
+---
+
+## Opción B: Render + Vercel (Alternativa)
+
+Si prefieres Render por conocimiento previo, el proceso es similar pero con dos servicios separados (API + PostgreSQL) y un coste de ~$14/mes.
+
+### Paso 1: Render — Base de Datos PostgreSQL
+
+1. [Render Dashboard](https://dashboard.render.com) → **New +** → **PostgreSQL**
+2. Configura:
+   - **Name:** `kavana-cleanstock-db`
+   - **Database:** `kavana_cleanstock`
+   - **Region:** Frankfurt (Europa)
+   - **Plan:** Starter ($7/mes)
+3. Una vez creado, copia la **Internal Database URL**
+
+### Paso 2: Render — API (Express + Socket.IO)
+
+1. **New +** → **Web Service** → conecta tu GitHub
+2. Configura:
+   - **Name:** `kavana-cleanstock-api`
+   - **Build Command:** `npm install && npx prisma generate`
+   - **Start Command:** `npx prisma migrate deploy && node prisma/seed.js && node src/server.js`
+   - **Plan:** Starter ($7/mes)
+3. **Environment Variables:**
+
+   | Variable | Valor |
+   |----------|-------|
+   | `DATABASE_URL` | La Internal URL de tu PostgreSQL en Render |
+   | `JWT_SECRET` | `openssl rand -base64 32` |
+   | `JWT_EXPIRES_IN` | `15m` |
+   | `REFRESH_TOKEN_EXPIRY_DAYS` | `30` |
+   | `NODE_ENV` | `production` |
+   | `CORS_ORIGIN` | `https://kavanasystems.com,https://app.kavanasystems.com` |
+
+4. **Health Check Path:** `/health`
+
+### Paso 3: Vercel — Frontends (Dashboard + Mobile)
+
+Sigue los mismos pasos que en Railway (Pasos 2 y 3 de la Opción A), pero cambiando la URL en los `vercel.json`:
+
+```json
+// dashboard/vercel.json y mobile/vercel.json
+{ "source": "/api/:path*", "destination": "https://kavana-cleanstock-api.onrender.com/api/:path*" }
+```
+
+---
+
+## Actualización del código en producción
+
+Cualquier plataforma que elijas, el flujo es el mismo:
+
+```bash
+git add .
+git commit -m "Descripción de los cambios"
+git push
+# Railway / Render / Vercel detectan el push y hacen redeploy automático
+```
+
+---
+
+## Troubleshooting
+
+### API no arranca
+```bash
+# Railway: Dashboard → Project → Deploy Logs
+# Render: Dashboard → kavana-cleanstock-api → Logs
+# Errores comunes:
+#   - DATABASE_URL incorrecta o no inyectada
+#   - Migraciones fallan (prisma migrate deploy)
+#   - Puerto: usa process.env.PORT siempre
+```
+
+### CORS errors
+```bash
+# Verifica CORS_ORIGIN en Railway/Render:
+#   CORS_ORIGIN=https://kavanasystems.com,https://app.kavanasystems.com
+# Con vercel.json rewrites no debería haber CORS issues
+```
+
+### Socket.IO no conecta
+```bash
+# Railway: ✅ Funciona desde el plan de $5/mes
+# Render: ❌ No funciona en plan Free. Necesitas Starter ($7/mes)
+# Alternativa: Socket.IO hace fallback a long-polling automáticamente
+```
+
+### Base de datos lenta
+```bash
+# Railway PostgreSQL: 1GB RAM incluido en el plan
+# Render PostgreSQL Starter: 512MB RAM
+# Alternativas: Neon.tech (serverless, 10GB gratis), Supabase
+```

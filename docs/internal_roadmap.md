@@ -1,7 +1,7 @@
 # Internal Roadmap — Kavana CleanStock
 
 > **Propósito:** Control de estado del proyecto, decisiones técnicas tomadas y planificación viva.
-> **Última actualización:** 2026-06-05 (Hito 5 — Socket.IO en tiempo real)
+> **Última actualización:** 2026-06-06 (Hito 6 — Módulos Enterprise: OPEX, Desviaciones, Incidencias, Compras, Notificaciones)
 
 ---
 
@@ -17,6 +17,7 @@
 | **Panel de Control del Supervisor (Dashboard Frontend)** | ✅ Completado (v3.0) |
 | **Despliegue Completo con Docker Compose** | ✅ Completado (Hito 4) |
 | **Tiempo Real con Socket.IO** | ✅ Completado (Hito 5) |
+| **Módulos Enterprise (OPEX, Desviaciones, Incidencias, Compras, Notificaciones)** | ✅ Completado (Hito 6) |
 
 ---
 
@@ -284,6 +285,74 @@ El dashboard exporta datos en formato CSV con BOM UTF-8 para compatibilidad con 
 
 ---
 
+## Hito 6 — Módulos Enterprise (OPEX, Desviaciones, Incidencias, Compras, Notificaciones)
+
+### ✅ Completado (v6.0)
+
+- [x] **Modelo de datos ampliado** ([`prisma/schema.prisma`](prisma/schema.prisma)):
+  - `Centro.presupuesto_mensual` — Límite de coste mensual en euros
+  - `Producto.coste_unitario` — Precio de adquisición por unidad
+  - `ConsumoTeorico` — Cantidad estándar mensual asignada por centro/producto (PK compuesta)
+  - `Incidencia` — Reporte de averías con categoría, título, descripción, foto, estado
+  - `ReglaNotificacion` — Configuración de alertas por supervisor/centro/operario/producto
+  - `Notificacion` — Historial de notificaciones enviadas a supervisores
+- [x] **Migración Prisma** ([`prisma/migrations/20260605145346_opex_and_notifications`](prisma/migrations/20260605145346_opex_and_notifications/migration.sql)):
+  - 4 nuevas tablas: `consumo_teorico`, `incidencias`, `reglas_notificacion`, `notificaciones`
+  - 2 columnas nuevas: `centros.presupuesto_mensual`, `productos.coste_unitario`
+  - Foreign keys con CASCADE y RESTRICT según corresponda
+- [x] **Seed actualizado** ([`prisma/seed.js`](prisma/seed.js)):
+  - Centros con `presupuesto_mensual` (200€ y 500€)
+  - Productos con `coste_unitario` (1.50€, 3.00€, 8.50€, etc.)
+  - Consumos teóricos para cada centro/producto
+  - Incidencias de ejemplo
+  - Reglas de notificación para el supervisor
+- [x] **Módulo A — Costes, Presupuestos y Traducción Financiera (OPEX)**:
+  - [`src/controllers/dashboardController.js`](src/controllers/dashboardController.js) — `consumption` ahora incluye:
+    - `coste_unitario` por producto
+    - `presupuesto_mensual` por centro
+    - `gasto_total_euros` y `gasto_euros` por movimiento
+    - `porcentaje_consumido` del presupuesto mensual
+  - Dashboard frontend muestra métricas en euros con barra de progreso
+- [x] **Módulo B — Consumo Teórico vs. Real (Desviaciones)**:
+  - [`src/controllers/deviationController.js`](src/controllers/deviationController.js) — `getDeviations()`:
+    - Compara consumo real del mes vs. teórico por centro/producto
+    - Calcula desviación absoluta, porcentaje consumido y coste de desviación
+    - Clasifica estado: `exceso`, `infraconsumo`, `normal`
+    - Filtros por centro y mes (YYYY-MM)
+    - Ordenado por desviación descendente (peores primero)
+  - [`src/routes/api.js`](src/routes/api.js:75) — `GET /dashboard/deviations` (supervisor+)
+  - [`dashboard/src/pages/Deviations.tsx`](dashboard/src/pages/Deviations.tsx) — Nueva página con tabla de desviaciones y filtros
+- [x] **Módulo C — Reporte de Incidencias**:
+  - [`src/controllers/incidenciaController.js`](src/controllers/incidenciaController.js):
+    - `createIncidencia()` — Creación con validación de centro activo para limpiadores
+    - `listIncidencias()` — Listado con filtros por centro/estado/categoría
+    - `updateIncidencia()` — Cambio de estado (pendiente → en_proceso → resuelta)
+  - [`src/routes/api.js`](src/routes/api.js:78-80) — `POST/GET /incidencias`, `PUT /incidencias/:id`
+  - [`dashboard/src/pages/Incidents.tsx`](dashboard/src/pages/Incidents.tsx) — Bandeja de incidencias con filtros y cambio de estado
+- [x] **Módulo D — Propuestas de Pedidos de Compra (Auto-Restock)**:
+  - [`src/controllers/purchaseController.js`](src/controllers/purchaseController.js) — `getProposal()`:
+    - Analiza inventario completo o por centro
+    - Filtra productos por debajo del stock mínimo
+    - Calcula déficit y cantidad de pedido (redondeo a múltiplo de 5)
+    - Estima coste total del pedido
+  - [`src/routes/api.js`](src/routes/api.js:83) — `GET /purchases/proposal` (supervisor+)
+- [x] **Sistema de Notificaciones para Supervisores**:
+  - [`src/controllers/notificationsController.js`](src/controllers/notificationsController.js):
+    - `getNotifications()` — Historial de notificaciones del supervisor
+    - `markAsRead()` — Marcar como leída (con verificación de propiedad)
+    - `getRules()` / `createRule()` / `deleteRule()` — CRUD de reglas de notificación
+  - [`src/routes/api.js`](src/routes/api.js:86-90) — 5 endpoints de notificaciones
+  - [`dashboard/src/pages/Notifications.tsx`](dashboard/src/pages/Notifications.tsx) — Panel de notificaciones y reglas
+- [x] **Dashboard Frontend — Navegación actualizada**:
+  - [`dashboard/src/components/Layout.tsx`](dashboard/src/components/Layout.tsx:41-52) — 3 nuevos enlaces en sidebar: Desviaciones, Incidencias, Notificaciones
+  - [`dashboard/src/App.tsx`](dashboard/src/App.tsx:69-71) — 3 nuevas rutas protegidas
+- [x] **Documentación actualizada**:
+  - [`docs/internal_roadmap.md`](docs/internal_roadmap.md) — Este hito
+  - [`docs/architecture_spec.md`](docs/architecture_spec.md) — Diagramas y descripción de nuevos módulos
+  - [`docs/plan_mejoras_enterprise.md`](docs/plan_mejoras_enterprise.md) — Módulos marcados como implementados
+
+---
+
 ## Decisiones Técnicas Registradas
 | ID | Decisión | Justificación |
 |----|----------|---------------|
@@ -299,6 +368,10 @@ El dashboard exporta datos en formato CSV con BOM UTF-8 para compatibilidad con 
 | D010 | Vite + React + TypeScript para PWA | React proporciona ecosistema maduro con Vite para builds rápidos y PWA plugin para service worker automático |
 | D011 | Docker multi-stage + nginx para frontends | Multi-stage separa build de runtime: imagen final 74 MB vs >1 GB con Node. nginx sirve estáticos eficientemente con Gzip, caché y proxy inverso |
 | D012 | Socket.IO para eventos en tiempo real | WebSocket con fallback a long-polling, rooms para filtrar por centro, autenticación JWT reutilizada, reconexión automática. Alternativa a SSE (sin rooms) y polling (wasteful) |
+| D013 | Modelo financiero en la misma tabla (coste_unitario + presupuesto_mensual) | Evita joins adicionales con tablas de contabilidad externa; el coste unitario del producto y el presupuesto del centro son datos intrínsecos del catálogo |
+| D014 | ConsumoTeórico como tabla separada (no campo en inventario) | La cantidad teórica es un estándar contractual independiente del stock actual; permite comparación mensual sin acoplar lógica de inventario |
+| D015 | Incidencias con categorías cerradas y estado workflow | Workflow simple (pendiente → en_proceso → resuelta) evita complejidad de BPMN; categorías cerradas garantizan consistencia en reportes |
+| D016 | Reglas de notificación desacopladas de la lógica de negocio | El supervisor configura qué eventos le interesan (por centro/operario/producto) sin modificar controladores; las reglas se evalúan en segundo plano |
 
 ---
 
