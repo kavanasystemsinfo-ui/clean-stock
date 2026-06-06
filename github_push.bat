@@ -5,6 +5,7 @@ color 0B
 echo ========================================================
 echo   Subida automatica a GitHub: Kavana CleanStock
 echo   Repositorio: kavanasystemsinfo-ui/clean_ops
+echo   Rama: main
 echo ========================================================
 echo.
 
@@ -22,6 +23,9 @@ if not exist ".git" (
     echo.
 )
 
+:: Asegurarse de estar en la rama main
+git checkout main 2>nul || git checkout -b main
+
 :: Añadir todos los archivos
 echo [2/4] Agregando archivos al staging area...
 git add .
@@ -36,9 +40,9 @@ echo Realizando commit...
 git commit -m "%commitMsg%"
 echo.
 
-:: Hacer push a la rama actual (sea main o master)
-echo [4/4] Subiendo cambios a GitHub...
-git push -u origin HEAD
+:: Hacer push a la rama main
+echo [4/4] Subiendo cambios a GitHub (rama: main)...
+git push -u origin main
 
 echo.
 if %errorlevel% equ 0 (
@@ -46,13 +50,18 @@ if %errorlevel% equ 0 (
     echo ========================================================
     echo   ¡Exito! Los cambios se han subido correctamente.
     echo   Revisa tu repositorio en:
-    echo   https://github.com/kavanasystemsinfo-ui/clean_ops
+    echo   https://github.com/kavanasystemsinfo-ui/clean_ops/tree/main
     echo ========================================================
 ) else (
     color 0C
     echo ========================================================
     echo   Hubo un error al subir los cambios a GitHub.
-    echo   Por favor, revisa el mensaje de error de Git arriba.
+    echo   Posibles causas:
+    echo   - No tienes conexion a Internet
+    echo   - No tienes permisos de escritura en el repositorio
+    echo   - Hay conflictos con la rama remota
+    echo.
+    echo   Solucion: git pull origin main --rebase y vuelve a ejecutar
     echo ========================================================
 )
 
