@@ -39,3 +39,5 @@ Thumbs.db
 # Credenciales (NUNCA subir a GitHub)
 credenciales.txt
 credentiales.txt
+connections string neontech.txt
+connections_string*.txt
