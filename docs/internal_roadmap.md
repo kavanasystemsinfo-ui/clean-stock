@@ -1,7 +1,7 @@
 # Internal Roadmap — Kavana CleanStock
 
 > **Propósito:** Control de estado del proyecto, decisiones técnicas tomadas y planificación viva.
-> **Última actualización:** 2026-06-06 (Hito 6 — Módulos Enterprise: OPEX, Desviaciones, Incidencias, Compras, Notificaciones)
+> **Última actualización:** 2026-06-06 (Hito 7 — Deploy Cloud Gratuito: Neon + Render + Vercel)
 
 ---
 
@@ -18,6 +18,7 @@
 | **Despliegue Completo con Docker Compose** | ✅ Completado (Hito 4) |
 | **Tiempo Real con Socket.IO** | ✅ Completado (Hito 5) |
 | **Módulos Enterprise (OPEX, Desviaciones, Incidencias, Compras, Notificaciones)** | ✅ Completado (Hito 6) |
+| **Deploy Cloud Gratuito (Neon + Render + Vercel)** | ✅ Completado (Hito 7) |
 
 ---
 
@@ -350,6 +351,37 @@ El dashboard exporta datos en formato CSV con BOM UTF-8 para compatibilidad con 
   - [`docs/internal_roadmap.md`](docs/internal_roadmap.md) — Este hito
   - [`docs/architecture_spec.md`](docs/architecture_spec.md) — Diagramas y descripción de nuevos módulos
   - [`docs/plan_mejoras_enterprise.md`](docs/plan_mejoras_enterprise.md) — Módulos marcados como implementados
+
+---
+
+## Hito 7 — Deploy Cloud Gratuito (Neon + Render + Vercel)
+
+### ✅ Completado (v7.0)
+
+- [x] **Seed actualizado** ([`prisma/seed.js`](prisma/seed.js)):
+  - Contraseña unificada `CleanStock2026!` para todos los usuarios de prueba
+  - Email del limpiador principal cambiado de `limpiador@kavana.com` a `carlos@kavana.com`
+  - Eliminados hashes individuales por hash único compartido
+- [x] **Guía de deploy corregida** ([`docs/deployment.md`](docs/deployment.md)):
+  - Arquitectura actualizada a Neon + Render + Vercel (coste 0 €/mes)
+  - Rama corregida: `master` → `main` (coincide con [`github_push.bat`](github_push.bat))
+  - Credenciales corregidas: `CleanStock2026!` para todos los usuarios
+  - Email del limpiador corregido: `carlos@kavana.com`
+  - Puerto por defecto documentado: `3000` (con nota de que el fallback en código es `4000`)
+  - Seed manual documentado: `node prisma/seed.js` desde Shell de Render
+  - Checklist de verificación con credenciales correctas
+  - Sección de troubleshooting para errores comunes
+- [x] **Infraestructura cloud desplegada**:
+  - Neon.tech: PostgreSQL Free (0.5 GB, Frankfurt)
+  - Render: API Express + Socket.IO (Free, Frankfurt)
+  - Vercel: Dashboard Supervisor (Hobby)
+  - Vercel: Mobile PWA Limpiador (Hobby)
+- [x] **Repositorio cambiado a público** en GitHub (requisito de planes gratuitos)
+- [x] **URLs finales de producción**:
+  - API: `https://kavana-cleanstock-api.onrender.com`
+  - Swagger: `https://kavana-cleanstock-api.onrender.com/api-docs`
+  - Dashboard: `https://kavana-cleanstock-dashboard.vercel.app`
+  - Mobile: `https://kavana-cleanstock-mobile.vercel.app`
 
 ---
 

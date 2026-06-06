@@ -17,18 +17,18 @@ async function main() {
   // -----------------------------------------------------------------------
   const salt = await bcrypt.genSalt(12);
 
-  // Passwords seguras para desarrollo (evitar detección de brecha en navegadores)
-  const hashAdmin = await bcrypt.hash('AdminKavana2026!', salt);
-  const hashSuper = await bcrypt.hash('SuperKavana2026!', salt);
-  const hashLimp = await bcrypt.hash('LimpKavana2026!', salt);
+  // Contraseña común para todos los usuarios (producción y desarrollo)
+  // Email: supervisor@kavana.com / carlos@kavana.com / ana@kavana.com / admin@kavana.com
+  // Password: CleanStock2026!
+  const hash = await bcrypt.hash('CleanStock2026!', salt);
 
   const admin = await prisma.usuario.upsert({
     where: { email: 'admin@kavana.com' },
-    update: { password_hash: hashAdmin },
+    update: { password_hash: hash },
     create: {
       nombre: 'Admin Kavana',
       email: 'admin@kavana.com',
-      password_hash: hashAdmin,
+      password_hash: hash,
       rol: 'admin',
       estado: 'activo',
     },
@@ -36,23 +36,23 @@ async function main() {
 
   const supervisor = await prisma.usuario.upsert({
     where: { email: 'supervisor@kavana.com' },
-    update: { password_hash: hashSuper },
+    update: { password_hash: hash },
     create: {
       nombre: 'María García',
       email: 'supervisor@kavana.com',
-      password_hash: hashSuper,
+      password_hash: hash,
       rol: 'supervisor',
       estado: 'activo',
     },
   });
 
   const limpiador1 = await prisma.usuario.upsert({
-    where: { email: 'limpiador@kavana.com' },
-    update: { password_hash: hashLimp },
+    where: { email: 'carlos@kavana.com' },
+    update: { password_hash: hash },
     create: {
       nombre: 'Carlos López',
-      email: 'limpiador@kavana.com',
-      password_hash: hashLimp,
+      email: 'carlos@kavana.com',
+      password_hash: hash,
       rol: 'limpiador',
       estado: 'activo',
     },
@@ -60,11 +60,11 @@ async function main() {
 
   const limpiador2 = await prisma.usuario.upsert({
     where: { email: 'ana@kavana.com' },
-    update: { password_hash: hashLimp },
+    update: { password_hash: hash },
     create: {
       nombre: 'Ana Martínez',
       email: 'ana@kavana.com',
-      password_hash: hashLimp,
+      password_hash: hash,
       rol: 'limpiador',
       estado: 'activo',
     },
@@ -72,11 +72,11 @@ async function main() {
 
   const bajaMedica = await prisma.usuario.upsert({
     where: { email: 'baja@kavana.com' },
-    update: { password_hash: hashLimp },
+    update: { password_hash: hash },
     create: {
       nombre: 'Pedro Sánchez',
       email: 'baja@kavana.com',
-      password_hash: hashLimp,
+      password_hash: hash,
       rol: 'limpiador',
       estado: 'baja_medica',
     },
