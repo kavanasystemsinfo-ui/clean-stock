@@ -17,6 +17,7 @@ const { cleanupExpiredTokens } = require('./controllers/authController');
 const { createSocketServer } = require('./lib/socket');
 
 const app = express();
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 4000;
 const TOKEN_CLEANUP_INTERVAL = 6 * 60 * 60 * 1000; // cada 6 horas
 
