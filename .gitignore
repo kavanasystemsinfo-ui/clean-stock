@@ -5,6 +5,9 @@ dist/
 .env.*
 logs/
 *.log
-*.bak
+*.bak*
 *.backup
+*.tsbuildinfo
+SUPABASE_MIGRATION_ENDPOINT_INVENTORY.md
+server-minimal.js
 .DS_Store
