@@ -1,69 +1,130 @@
 # Kavana CleanStock
 
-Kavana CleanStock es un sistema MES (Manufacturing Execution System) industrial multi-tenant adaptado para el control de inventario distribuido, control de producción y costes, diseñado inicialmente para fabricantes de estanterías metálicas (Puntales Titán K-100, Largueros L-2700, Bandejas E-900).
+Sistema MES para control de inventario distribuido, diseñado inicialmente para empresas de limpieza profesional.
 
-El sistema consta de:
-* **Backend API**: Servidor Express + Prisma (PostgreSQL) + Socket.IO para tiempo real.
-* **Mobile App (PWA/Tablet)**: Aplicación móvil para operarios de limpieza con capacidades offline.
-* **Dashboard App**: Panel de control interactivo para supervisores y administradores.
+## Stack
 
----
+| Componente | Tecnología | Despliegue |
+|---|---|---|
+| **Backend API** | Node.js + Express + Prisma | Docker en VPS (Hetzner) |
+| **Base de datos** | PostgreSQL 16 | Docker en VPS |
+| **Dashboard supervisor** | React + Vite + TypeScript | nginx reverse proxy (VPS) |
+| **App móvil limpiador (PWA)** | React + Vite + PWA | nginx reverse proxy (VPS) |
+| **APK Android** | Capacitor | Build manual desde Android Studio |
+| **Tiempo real** | Socket.IO | Integrado en API |
 
-## Requisitos Previos
+## URLs
 
-* Node.js v18 o superior
-* Docker y Docker Compose (para base de datos PostgreSQL en local)
+| URL | Qué es |
+|---|---|
+| **[https://cleanstock.kavanasystems.com](https://cleanstock.kavanasystems.com)** | Dashboard supervisor |
+| **https://cleanstock.kavanasystems.com/empleado** | App móvil limpiador (PWA) |
+| **https://cleanstock.kavanasystems.com/api/v1/health** | API health check |
 
-## Instalación y Configuración
+## Despliegue (VPS)
 
-1. Instalar dependencias en el directorio raíz:
-   ```bash
-   npm install
-   ```
-2. Instalar dependencias del panel (dashboard) y la aplicación móvil:
-   ```bash
-   cd dashboard && npm install
-   cd ../mobile && npm install
-   ```
-3. Copiar archivo de entorno `.env.example` a `.env` en la raíz y configurar las variables:
-   ```bash
-   cp .env.example .env
-   ```
-4. Levantar la base de datos en Docker:
-   ```bash
-   npm run docker:db
-   ```
-5. Ejecutar las migraciones y el seed de base de datos:
-   ```bash
-   npx prisma migrate dev
-   node prisma/seed.js
-   ```
+La aplicación corre en un VPS de Hetzner con Docker:
 
-## Ejecución en Local
-
-* **Iniciar Backend API**: `npm run dev` (ejecuta nodemon en el puerto 4000)
-* **Iniciar App Móvil**: `npm run mobile:dev`
-* **Iniciar Dashboard**: `npm run dashboard:dev`
-
-## Ejecutar Pruebas
-
-Para validar la lógica de negocio y las validaciones de seguridad:
-```bash
-npm run test
+```
+                  cleanstock.kavanasystems.com
+                          │
+                     ┌────┴────┐
+                     │  nginx  │  ← SSL (Let's Encrypt)
+                     │  :443   │
+                     └────┬────┘
+                          │
+         ┌────────────────┼────────────────┐
+         ▼                ▼                ▼
+  ┌────────────┐  ┌────────────┐  ┌──────────────┐
+  │ Dashboard  │  │   Mobile   │  │  API Express │
+  │ :4001      │  │ :4000      │  │ :3000        │
+  │ React SPA  │  │ PWA React  │  │ + Prisma     │
+  │ nginx      │  │ nginx      │  │              │
+  └────────────┘  └────────────┘  └──────┬───────┘
+                                         │
+                                         ▼
+                                  ┌────────────┐
+                                  │ PostgreSQL │
+                                  │ :5432      │
+                                  └────────────┘
 ```
 
----
+### Requisitos
 
-## Módulos Enterprise Implementados
+- Docker y Docker Compose
+- Node.js 20 (imagen Docker)
+- nginx con Let's Encrypt (certbot)
+- VPS con 2+ GB RAM, 20+ GB disco
 
-Recientemente hemos implementado mejoras críticas para asegurar la aplicación y dotarla de capacidad Enterprise:
+### Instalación local
 
-1. **Inteligencia Financiera (OPEX y Desviaciones)**: Cálculo del "Hambre de material" en tiempo real usando Consumos Teóricos. El dashboard traduce las unidades consumidas a impacto económico (OPEX) usando el coste de adquisición del producto y alertas financieras si se supera el presupuesto asignado al centro.
-2. **Propuestas de Compra Predictivas (CSV)**: Generador inteligente de propuestas de pedido que calcula el déficit entre el stock mínimo y el actual, estimando el coste total por proveedor. Permite exportación a formato `.csv` compatible con Excel y sistemas ERP de contabilidad.
-3. **Gestión Integral de Incidencias**: Flujo completo de reportes desde el cliente móvil PWA para reportar fallos en campo (Limpieza, Fontanería, etc.) hasta el dashboard de supervisión para su resolución.
-4. **Sistema de Alertas y Reglas de Notificación**: Motor de notificaciones dinámico. Los administradores pueden suscribirse a eventos específicos (ej. "Avisarme si Carlos saca Lejía", o "Avisarme de cualquier consumo en la Fábrica Norte").
-5. **Seguridad y Anti-Fraude**: 
-   - Restricción estricta (Bypass) de Centros por ROL y protección CORS dinámica.
-   - Refactor de la arquitectura para soportar sesiones persistentes (`Refresh Tokens`) e interceptores de red para caídas de cobertura en sótanos/fábricas.
+```bash
+# 1. Clonar
+git clone https://github.com/kavanasystemsinfo-ui/clean-stock.git
+cd clean-stock
 
-Para ver las decisiones arquitectónicas en detalle técnico, consulta [DECISIONES_ESTRATEGICAS.md](./DECISIONES_ESTRATEGICAS.md).
+# 2. Copiar .env
+cp .env.example .env
+# Editar DATABASE_URL y JWT_SECRET
+
+# 3. Levantar con Docker
+docker compose up -d
+
+# 4. Migraciones y seed
+npx prisma migrate deploy
+node prisma/seed.js
+```
+
+### Desarrollo local
+
+```bash
+npm install
+cd dashboard && npm install && npm run dev      # :4001
+cd ../mobile && npm install && npm run dev       # :4000
+npm run dev                        # API :3000
+```
+
+## APK Android
+
+La app móvil tiene soporte para Capacitor, que genera un APK que carga la web dentro de una WebView nativa.
+
+Para generar el APK:
+
+1. Clona el repo en tu PC con Android Studio
+2. Abre `mobile/android/` en Android Studio
+3. Build → Build APK
+4. El APK aparece en `android/app/build/outputs/apk/debug/`
+
+Cada cambio en la web se refleja automáticamente sin actualizar el APK.
+
+## Usuarios de prueba
+
+| Email | Rol | Contraseña |
+|---|---|---|
+| `admin@kavana.com` | Admin | CleanStock2026! |
+| `supervisor@kavana.com` | Supervisor | CleanStock2026! |
+| `empleado@kavana.com` | Limpiador | CleanStock2026! |
+
+## Estructura del proyecto
+
+```
+├── api/                      # Vercel serverless entry (futuro)
+├── dashboard/                # React SPA (supervisor)
+│   └── src/
+│       ├── pages/
+│       └── lib/
+├── mobile/                   # React PWA (limpiador)
+│   ├── android/              # Proyecto Capacitor (APK)
+│   └── src/
+├── prisma/                   # Schema + migraciones
+├── src/                      # API Express
+│   ├── routes/
+│   └── controllers/
+├── docker-compose.yml
+├── vercel.json               # Config Vercel (futuro)
+└── supabase-migrate.sh       # Guía migración Supabase
+```
+
+## Licencia
+
+MIT — Kavana Systems
