@@ -11,3 +11,5 @@ logs/
 SUPABASE_MIGRATION_ENDPOINT_INVENTORY.md
 server-minimal.js
 .DS_Store
+.vercel
+.env*
