@@ -177,6 +177,23 @@ app.post('/api/v1/empleados', auth, supervisorOnly, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Centro activo del usuario logueado (app empleado)
+app.get('/api/v1/asignaciones/active', auth, async (req, res) => {
+  try {
+    const now = new Date();
+    const asignacion = await prisma.asignacionPersonal.findFirst({
+      where: {
+        id_usuario: req.user.id_usuario,
+        fecha_inicio: { lte: now },
+        OR: [{ fecha_fin: null }, { fecha_fin: { gte: now } }]
+      },
+      include: { centro: true }
+    });
+    if (!asignacion) return res.status(404).json({ error: 'No tienes un centro asignado' });
+    res.json({ asignacion: { centro: asignacion.centro } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ----- INVENTARIO -----
 app.get('/api/v1/inventario', auth, async (req, res) => {
   try {
@@ -242,6 +259,32 @@ app.get('/api/v1/stock/inventory', auth, async (req, res) => {
       }
     }));
     res.json({ inventario: result });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Consumir stock (app empleado)
+app.post('/api/v1/stock/consume', auth, async (req, res) => {
+  try {
+    const { id_producto, cantidad } = req.body;
+    if (!id_producto || !cantidad || cantidad <= 0) {
+      return res.status(400).json({ error: 'Producto y cantidad requeridos' });
+    }
+    const now = new Date();
+    const asignacion = await prisma.asignacionPersonal.findFirst({
+      where: { id_usuario: req.user.id_usuario, fecha_inicio: { lte: now }, OR: [{ fecha_fin: null }, { fecha_fin: { gte: now } }] }
+    });
+    if (!asignacion) return res.status(400).json({ error: 'No tienes un centro asignado' });
+    const id_centro = asignacion.id_centro;
+    const inv = await prisma.inventarioCentro.findUnique({ where: { id_centro_id_producto: { id_centro, id_producto } } });
+    if (!inv || inv.cantidad_actual < cantidad) return res.status(400).json({ error: 'Stock insuficiente' });
+    await prisma.inventarioCentro.update({ where: { id_centro_id_producto: { id_centro, id_producto } }, data: { cantidad_actual: inv.cantidad_actual - cantidad } });
+    const mov = await prisma.registroMovimiento.create({ data: { id_centro, id_producto, id_usuario: req.user.id_usuario, cantidad: -Math.abs(cantidad) } });
+    const updated = await prisma.inventarioCentro.findUnique({ where: { id_centro_id_producto: { id_centro, id_producto } }, include: { producto: true } });
+    res.json({
+      message: 'Consumo registrado',
+      inventario: { id_centro, id_producto, cantidad_actual: updated.cantidad_actual, producto: { id_producto: updated.producto.id_producto, nombre_producto: updated.producto.nombre_producto, unidad_medida: updated.producto.unidad_medida, stock_minimo_alerta: updated.producto.stock_minimo_alerta } },
+      movimiento: { id_movimiento: mov.id_movimiento, cantidad: mov.cantidad, fecha_hora: mov.fecha_hora }
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
