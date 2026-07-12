@@ -59,6 +59,67 @@ app.get('/api/v1/dashboard', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Dashboard — Consumption data (frontend)
+app.get('/api/v1/dashboard/consumption', auth, async (req, res) => {
+  try {
+    const { centro, producto, desde, hasta } = req.query;
+    // Return basic consumption data
+    const movs = await prisma.$queryRawUnsafe(`
+      SELECT rm.*, p.nombre_producto, p.unidad_medida, p.coste_unitario,
+             c.nombre_centro, u.nombre as usuario_nombre
+      FROM registro_movimientos rm
+      JOIN productos p ON rm.id_producto = p.id_producto
+      JOIN centros c ON rm.id_centro = c.id_centro
+      JOIN usuarios u ON rm.id_usuario = u.id_usuario
+      WHERE rm.cantidad < 0
+      ORDER BY rm.fecha_hora DESC LIMIT 50
+    `);
+    const total = movs.reduce((s, m) => s + Math.abs(Number(m.cantidad)), 0);
+    const totalEuro = movs.reduce((s, m) => s + (Math.abs(Number(m.cantidad)) * Number(m.coste_unitario || 0)), 0);
+    res.json({
+      total_consumo_unidades: total,
+      total_gasto_euros: Math.round(totalEuro * 100) / 100,
+      total_movimientos: movs.length,
+      resumen_por_centro: [],
+      movimientos: movs.map(m => ({
+        id_movimiento: m.id_movimiento,
+        fecha_hora: m.fecha_hora,
+        centro: { id_centro: m.id_centro, nombre_centro: m.nombre_centro },
+        producto: { id_producto: m.id_producto, nombre_producto: m.nombre_producto, unidad_medida: m.unidad_medida },
+        cantidad: m.cantidad,
+        gasto_euros: Math.round(Math.abs(Number(m.cantidad)) * Number(m.coste_unitario || 0) * 100) / 100,
+        usuario: { nombre: m.usuario_nombre }
+      }))
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Dashboard — Alerts (frontend)
+app.get('/api/v1/dashboard/alerts', auth, async (req, res) => {
+  try {
+    const criticas = await prisma.$queryRawUnsafe(`
+      SELECT ic.*, p.nombre_producto, c.nombre_centro
+      FROM inventario_centros ic
+      JOIN productos p ON ic.id_producto = p.id_producto
+      JOIN centros c ON ic.id_centro = c.id_centro
+      WHERE ic.cantidad_actual <= 0
+      ORDER BY c.nombre_centro
+    `);
+    const advertencias = await prisma.$queryRawUnsafe(`
+      SELECT ic.*, p.nombre_producto, c.nombre_centro
+      FROM inventario_centros ic
+      JOIN productos p ON ic.id_producto = p.id_producto
+      JOIN centros c ON ic.id_centro = c.id_centro
+      WHERE ic.cantidad_actual > 0 AND ic.cantidad_actual <= ic.stock_minimo AND ic.stock_minimo > 0
+      ORDER BY c.nombre_centro
+    `);
+    res.json({
+      criticas: criticas.map(c => ({ id: c.id_centro + '-' + c.id_producto, centro: c.nombre_centro, producto: c.nombre_producto, cantidad_actual: c.cantidad_actual })),
+      advertencias: advertencias.map(a => ({ id: a.id_centro + '-' + a.id_producto, centro: a.nombre_centro, producto: a.nombre_producto, cantidad_actual: a.cantidad_actual }))
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ----- CATEGORIAS -----
 app.get('/api/v1/categorias', auth, async (req, res) => {
   try { 
@@ -79,7 +140,7 @@ app.get('/api/v1/productos', auth, async (req, res) => {
     const where = {};
     if (search) where.nombre = { contains: search, mode: 'insensitive' };
     if (categoria) where.id_categoria = parseInt(categoria);
-    const prods = await prisma.producto.findMany({ where, include: { categoria: true }, orderBy: { nombre: 'asc' } });
+    const prods = await prisma.producto.findMany({ where, include: { categoria: true }, orderBy: { nombre_producto: 'asc' } });
     res.json({ productos: prods });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
