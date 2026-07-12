@@ -20,10 +20,15 @@ model Usuario {
   id_usuario    Int       @id @default(autoincrement())
   nombre        String
   email         String    @unique
+  username      String?   @unique
   password_hash String
   rol           String    @default("limpiador") // limpiador | supervisor | admin
   estado        String    @default("activo")    // activo | baja_medica | inactivo
+  id_cliente    Int?                              // NULL para super admin
+  is_super_admin Boolean  @default(false)
+  telefono      String?
 
+  cliente           Cliente? @relation(fields: [id_cliente], references: [id_cliente])
   asignaciones       AsignacionPersonal[]
   registroMovimientos RegistroMovimiento[]
   incidencias        Incidencia[]
@@ -37,6 +42,28 @@ model Usuario {
 }
 
 // =============================================================================
+// Model: Cliente
+// Descripción: Empresas clientes del SaaS, suscripciones y planes
+// =============================================================================
+model Cliente {
+  id_cliente      Int      @id @default(autoincrement())
+  nombre_empresa  String
+  email_contacto  String
+  telefono        String?
+  plan            String   @default("basic")     // basic | pro
+  estado          String   @default("trial")     // trial | activo | expirado | cancelado
+  fecha_registro  DateTime @default(now())
+  trial_fin       DateTime
+  fecha_renovacion DateTime?
+  notas           String?
+
+  usuarios   Usuario[]
+  centros    Centro[]
+
+  @@map("clientes")
+}
+
+// =============================================================================
 // Model: Centro
 // Descripción: Centros de trabajo (colegios, oficinas, fábricas, etc.)
 // =============================================================================
@@ -44,8 +71,10 @@ model Centro {
   id_centro     Int       @id @default(autoincrement())
   nombre_centro String
   direccion           String?
-  presupuesto_mensual Float     @default(0.0) // Límite de coste mensual (ej. 300.00 €)
+  presupuesto_mensual Float     @default(0.0)
+  id_cliente    Int?
 
+  cliente             Cliente?  @relation(fields: [id_cliente], references: [id_cliente])
   asignaciones        AsignacionPersonal[]
   inventarioCentros   InventarioCentro[]
   registroMovimientos RegistroMovimiento[]

@@ -1,130 +1,141 @@
-# Kavana CleanStock
+# CleanStock
 
-Sistema MES para control de inventario distribuido, diseñado inicialmente para empresas de limpieza profesional.
+**Sistema de gestión de inventario para empresas de limpieza**
 
-## Stack
+CleanStock permite a supervisores y operarios gestionar productos, inventarios y consumos en tiempo real desde cualquier dispositivo.
 
-| Componente | Tecnología | Despliegue |
-|---|---|---|
-| **Backend API** | Node.js + Express + Prisma | Docker en VPS (Hetzner) |
-| **Base de datos** | PostgreSQL 16 | Docker en VPS |
-| **Dashboard supervisor** | React + Vite + TypeScript | nginx reverse proxy (VPS) |
-| **App móvil limpiador (PWA)** | React + Vite + PWA | nginx reverse proxy (VPS) |
-| **APK Android** | Capacitor | Build manual desde Android Studio |
-| **Tiempo real** | Socket.IO | Integrado en API |
+---
 
-## URLs
+## 🚀 Demo
 
-| URL | Qué es |
-|---|---|
-| **[https://cleanstock.kavanasystems.com](https://cleanstock.kavanasystems.com)** | Dashboard supervisor |
-| **https://cleanstock.kavanasystems.com/empleado** | App móvil limpiador (PWA) |
-| **https://cleanstock.kavanasystems.com/api/v1/health** | API health check |
+- **Landing:** https://cleanstock.kavanasystems.com/welcome/
+- **Regístrate:** https://cleanstock.kavanasystems.com/registro/
+- **Panel Supervisor:** https://cleanstock.kavanasystems.com/ 
+- **App Operario:** https://cleanstock.kavanasystems.com/empleado/
 
-## Despliegue (VPS)
+---
 
-La aplicación corre en un VPS de Hetzner con Docker:
+## 🛠️ Tecnología
+
+| Capa | Tecnología |
+|------|------------|
+| **Frontend** | React + Vite + TailwindCSS |
+| **Backend** | Node.js + Express + Prisma ORM |
+| **Database** | PostgreSQL 16 |
+| **Auth** | JWT + bcrypt |
+
+---
+
+## 📁 Estructura del Proyecto
 
 ```
-                  cleanstock.kavanasystems.com
-                          │
-                     ┌────┴────┐
-                     │  nginx  │  ← SSL (Let's Encrypt)
-                     │  :443   │
-                     └────┬────┘
-                          │
-         ┌────────────────┼────────────────┐
-         ▼                ▼                ▼
-  ┌────────────┐  ┌────────────┐  ┌──────────────┐
-  │ Dashboard  │  │   Mobile   │  │  API Express │
-  │ :4001      │  │ :4000      │  │ :3000        │
-  │ React SPA  │  │ PWA React  │  │ + Prisma     │
-  │ nginx      │  │ nginx      │  │              │
-  └────────────┘  └────────────┘  └──────┬───────┘
-                                         │
-                                         ▼
-                                  ┌────────────┐
-                                  │ PostgreSQL │
-                                  │ :5432      │
-                                  └────────────┘
+clean-stock/
+├── src/app.js              # API Express (Docker + Vercel compatible)
+├── prisma/
+│   ├── schema.prisma       # Esquema de base de datos
+│   └── migrations/       # Migraciones SQL
+├── dashboard/              # Panel supervisor (React/Vite)
+├── mobile/                 # App operario (React/Vite)
+├── api/index.js           # Wrapper Vercel serverless
+├── vercel.json            # Configuración Vercel
+├── docker-compose.yml     # Deploy VPS
+└── README.md
 ```
 
-### Requisitos
+---
 
-- Docker y Docker Compose
-- Node.js 20 (imagen Docker)
-- nginx con Let's Encrypt (certbot)
-- VPS con 2+ GB RAM, 20+ GB disco
+## 🔧 Despliegue
 
-### Instalación local
+### Opción A: VPS (Producción)
 
 ```bash
-# 1. Clonar
-git clone https://github.com/kavanasystemsinfo-ui/clean-stock.git
-cd clean-stock
-
-# 2. Copiar .env
-cp .env.example .env
-# Editar DATABASE_URL y JWT_SECRET
-
-# 3. Levantar con Docker
+# En el VPS
+docker compose pull  # Si usas imágenes prebuild
 docker compose up -d
-
-# 4. Migraciones y seed
-npx prisma migrate deploy
-node prisma/seed.js
 ```
 
-### Desarrollo local
-
-```bash
-npm install
-cd dashboard && npm install && npm run dev      # :4001
-cd ../mobile && npm install && npm run dev       # :4000
-npm run dev                        # API :3000
+**Variables de entorno (.env):**
+```env
+DATABASE_URL=postgresql://kavana:***@db:5432/kavana_cleanstock
+JWT_SECRET=tu-secret-jwt
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=notificaciones@tudominio.com
+SMTP_PASS=app-password-de-gmail
+SMTP_FROM=CleanStock <notificaciones@tudominio.com>
 ```
 
-## APK Android
+### Opción B: Vercel (Sin VPS)
 
-La app móvil tiene soporte para Capacitor, que genera un APK que carga la web dentro de una WebView nativa.
+1. Configura variables en Vercel Dashboard:
+   ```
+   DATABASE_URL=postgresql://postgres:***@db.[PROJECT].supabase.co:5432/postgres
+   SUPABASE_ANON_KEY=[anon public key]
+   SUPABASE_SERVICE_ROLE_KEY=[service role key]
+   JWT_SECRET=tu-secret-jwt
+   ```
 
-Para generar el APK:
+2. Deploy:
+   ```bash
+   npm install -g vercel
+   vercel --prod
+   ```
 
-1. Clona el repo en tu PC con Android Studio
-2. Abre `mobile/android/` en Android Studio
-3. Build → Build APK
-4. El APK aparece en `android/app/build/outputs/apk/debug/`
+---
 
-Cada cambio en la web se refleja automáticamente sin actualizar el APK.
+## 📚 API Endpoints
 
-## Usuarios de prueba
+### Auth
+- `POST /api/v1/auth/login` — Login (email o username)
+- `POST /api/v1/auth/register-empresa` — Registro trial 30 días
 
-| Email | Rol | Contraseña |
-|---|---|---|
-| `admin@kavana.com` | Admin | CleanStock2026! |
-| `supervisor@kavana.com` | Supervisor | CleanStock2026! |
-| `empleado@kavana.com` | Limpiador | CleanStock2026! |
+### Recursos
+- `GET /api/v1/dashboard` — Stats generales
+- `GET /api/v1/categorias` — Listar categorías
+- `GET /api/v1/productos?search=&categoria=` — Listar productos
+- `GET /api/v1/centros` — Listar centros
+- `GET /api/v1/empleados` — Listar operarios (supervisor+)
+- `GET /api/v1/inventario?centro=` — Stock por centro
+- `GET /api/v1/consumos?centro=` — Historial consumos
+- `GET /api/v1/incidencias` — Listar incidencias
 
-## Estructura del proyecto
+### Admin (Super Admin)
+- `GET /api/v1/admin/clientes` — Listar clientes
+- `GET /api/v1/admin/clientes/:id` — Detalle cliente
+- `PUT /api/v1/admin/clientes/:id` — Actualizar plan/estado
+- `GET /api/v1/admin/stats` — Estadísticas SaaS
 
-```
-├── api/                      # Vercel serverless entry (futuro)
-├── dashboard/                # React SPA (supervisor)
-│   └── src/
-│       ├── pages/
-│       └── lib/
-├── mobile/                   # React PWA (limpiador)
-│   ├── android/              # Proyecto Capacitor (APK)
-│   └── src/
-├── prisma/                   # Schema + migraciones
-├── src/                      # API Express
-│   ├── routes/
-│   └── controllers/
-├── docker-compose.yml
-├── vercel.json               # Config Vercel (futuro)
-└── supabase-migrate.sh       # Guía migración Supabase
-```
+---
 
-## Licencia
+## 💰 Planes SaaS
 
-MIT — Kavana Systems
+| Característica | Basic (9€/mes) | Pro (29€/mes) |
+|----------------|----------------|----------------|
+| Empleados | 5 usuarios | Ilimitados |
+| Centros | 3 centros | Ilimitados |
+| Histórico consumos | 60 días | Ilimitado |
+| Exportar datos | ❌ | ✅ CSV/PDF |
+| Notificaciones push | ❌ | ✅ |
+
+---
+
+## 📱 APK Android
+
+El proyecto incluye Capacitor en `/mobile/android/`.  
+Genera el APK con Android Studio desde `mobile/` → **Build > Generate Signed Bundle/APK**.
+
+---
+
+## 🔐 Credenciales por defecto
+
+Al registrarte recibes:
+- **Email:** el que usaste en el formulario
+- **Contraseña:** la que elegiste
+- **Rol:** supervisor (acceso a todo el negocio)
+- **Trial:** 30 días gratis
+
+---
+
+## 🆘 Soporte
+
+Contacto: kavanasystems.info@gmail.com

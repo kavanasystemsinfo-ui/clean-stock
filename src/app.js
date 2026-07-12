@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer');
 const { PrismaClient } = require('@prisma/client');
 
 const app = express();
@@ -27,15 +28,22 @@ const supervisorOnly = (req, res, next) => {
   if (req.user.rol !== 'supervisor') return res.status(403).json({ error: 'Solo supervisor' });
   next();
 };
+const superAdminOnly = (req, res, next) => {
+  if (!req.user.is_super_admin) return res.status(403).json({ error: 'Solo administrador del sistema' });
+  next();
+};
 
 // ----- AUTH -----
 app.post('/api/v1/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const u = await prisma.usuario.findUnique({ where: { email } });
+    // Buscar por email o username
+    const u = email.includes('@')
+      ? await prisma.usuario.findUnique({ where: { email } })
+      : await prisma.usuario.findFirst({ where: { username: email } });
     if (!u || !(await bcrypt.compare(password, u.password_hash))) return res.status(401).json({ error: 'Credenciales invalidas' });
-    const token = jwt.sign({ id_usuario: u.id_usuario, email, rol: u.rol }, JWT_SECRET, { expiresIn: '12h' });
-    res.json({ token, usuario: { id_usuario: u.id_usuario, nombre: u.nombre, email: u.email, rol: u.rol } });
+    const token = jwt.sign({ id_usuario: u.id_usuario, email: u.email, rol: u.rol, is_super_admin: u.is_super_admin }, JWT_SECRET, { expiresIn: '12h' });
+    res.json({ token, usuario: { id_usuario: u.id_usuario, nombre: u.nombre, email: u.email, username: u.username, rol: u.rol, is_super_admin: u.is_super_admin } });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -184,6 +192,169 @@ app.put('/api/v1/incidencias/:id', auth, supervisorOnly, async (req, res) => {
   try { const inc = await prisma.incidencia.update({ where: { id_incidencia: parseInt(req.params.id) }, data: { estado: req.body.estado } }); res.json({ incidencia: inc }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
+
+// ============================
+// SAAS — Registro de empresas & Admin
+// ============================
+
+// Registro público de nueva empresa (prueba gratis)
+app.post('/api/v1/auth/register-empresa', async (req, res) => {
+  try {
+    const { nombre_empresa, email, password, nombre_responsable, telefono } = req.body;
+    if (!nombre_empresa || !email || !password || !nombre_responsable) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios' });
+    }
+
+    // Crear cliente
+    const cliente = await prisma.cliente.create({
+      data: {
+        nombre_empresa,
+        email_contacto: email,
+        telefono,
+        plan: 'basic',
+        estado: 'trial',
+        trial_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+      }
+    });
+
+    // Crear centro por defecto
+    const centro = await prisma.centro.create({
+      data: {
+        nombre_centro: 'Centro Principal',
+        id_cliente: cliente.id_cliente,
+      }
+    });
+
+    // Crear usuario admin del cliente
+    const hash = await bcrypt.hash(password, 12);
+    const usuario = await prisma.usuario.create({
+      data: {
+        nombre: nombre_responsable,
+        email,
+        password_hash: hash,
+        rol: 'supervisor',
+        estado: 'activo',
+        id_cliente: cliente.id_cliente,
+        telefono,
+      }
+    });
+
+    // Asignar al centro por defecto
+    await prisma.asignacionPersonal.create({
+      data: {
+        id_usuario: usuario.id_usuario,
+        id_centro: centro.id_centro,
+        fecha_inicio: new Date(),
+      }
+    });
+
+    // Enviar email de bienvenida
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        }
+      });
+      
+      await transporter.sendMail({
+        from: `CleanStock <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to: email,
+        subject: '✅ Bienvenido a CleanStock - Credenciales de acceso',
+        html: `
+          <h2>¡Bienvenido a CleanStock!</h2>
+          <p>Tu cuenta está activa con <strong>30 días de prueba gratuita</strong>.</p>
+          <h3>Credenciales de acceso</h3>
+          <p><strong>URL:</strong> https://cleanstock.kavanasystems.com/login</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Contraseña:</strong> ${password}</p>
+          <p>Accede ahora y empieza a gestionar tu inventario.</p>
+        `
+      });
+    } catch(err) {
+      console.error('Email error:', err.message);
+    }
+
+    res.json({
+      success: true,
+      mensaje: 'Empresa registrada. Revisa tu email para acceder.',
+      cliente: {
+        id: cliente.id_cliente,
+        empresa: cliente.nombre_empresa,
+        plan: cliente.plan,
+        trial_hasta: cliente.trial_fin,
+      }
+    });
+  } catch(e) {
+    if (e.code === 'P2002') return res.status(409).json({ error: 'El email ya está registrado' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Admin endpoints (solo super admin) ---
+app.get('/api/v1/admin/clientes', auth, superAdminOnly, async (req, res) => {
+  try {
+    const clientes = await prisma.cliente.findMany({
+      include: {
+        _count: { select: { usuarios: true, centros: true } },
+        usuarios: { select: { id_usuario: true, nombre: true, email: true, rol: true, estado: true, is_super_admin: true } }
+      },
+      orderBy: { fecha_registro: 'desc' }
+    });
+    res.json({ clientes });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/v1/admin/clientes/:id', auth, superAdminOnly, async (req, res) => {
+  try {
+    const cliente = await prisma.cliente.findUnique({
+      where: { id_cliente: parseInt(req.params.id) },
+      include: {
+        usuarios: { orderBy: { nombre: 'asc' } },
+        centros: { include: { _count: { select: { usuarios: true } } } },
+      }
+    });
+    if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
+    res.json({ cliente });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/v1/admin/clientes/:id', auth, superAdminOnly, async (req, res) => {
+  try {
+    const { plan, estado, notas } = req.body;
+    const data = {};
+    if (plan) data.plan = plan;
+    if (estado) data.estado = estado;
+    if (notas !== undefined) data.notas = notas;
+    if (estado === 'activo' && !req.body.fecha_renovacion) {
+      data.fecha_renovacion = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    }
+    const cliente = await prisma.cliente.update({
+      where: { id_cliente: parseInt(req.params.id) },
+      data,
+    });
+    res.json({ cliente, mensaje: 'Cliente actualizado' });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/v1/admin/stats', auth, superAdminOnly, async (req, res) => {
+  try {
+    const total = await prisma.cliente.count();
+    const activos = await prisma.cliente.count({ where: { estado: 'activo' } });
+    const trials = await prisma.cliente.count({ where: { estado: 'trial' } });
+    const expirados = await prisma.cliente.count({ where: { estado: 'expirado' } });
+    const basic = await prisma.cliente.count({ where: { plan: 'basic' } });
+    const pro = await prisma.cliente.count({ where: { plan: 'pro' } });
+    const ingresos_mensuales = (basic * 9) + (pro * 29);
+    res.json({ stats: { total, activos, trials, expirados, basic, pro, ingresos_mensuales } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Login ahora también devuelve is_super_admin
+// (modificar endpoint existente arriba si hace falta)
 
 // Health check
 app.get('/api/v1/health', (req, res) => res.json({ status: 'ok' }));
