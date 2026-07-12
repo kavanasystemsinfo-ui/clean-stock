@@ -214,6 +214,37 @@ app.post('/api/v1/inventario/reponer', auth, supervisorOnly, async (req, res) =>
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Stock inventory con productos (para frontend getProductos)
+app.get('/api/v1/stock/inventory', auth, async (req, res) => {
+  try {
+    const { centro } = req.query;
+    let sql = `SELECT ic.id_centro, ic.id_producto, ic.cantidad_actual,
+               c.nombre_centro,
+               p.id_producto as prod_id, p.nombre_producto, p.unidad_medida, p.stock_minimo_alerta, p.coste_unitario, p.id_categoria
+               FROM inventario_centros ic
+               JOIN centros c ON ic.id_centro = c.id_centro
+               JOIN productos p ON ic.id_producto = p.id_producto`;
+    if (centro) sql += ` WHERE ic.id_centro = ${parseInt(centro)}`;
+    sql += ` ORDER BY p.nombre_producto`;
+    const items = await prisma.$queryRawUnsafe(sql);
+    const result = items.map(i => ({
+      id_centro: i.id_centro,
+      id_producto: i.id_producto,
+      cantidad_actual: i.cantidad_actual,
+      centro: { nombre_centro: i.nombre_centro },
+      producto: {
+        id_producto: i.prod_id,
+        nombre_producto: i.nombre_producto,
+        unidad_medida: i.unidad_medida,
+        stock_minimo_alerta: i.stock_minimo_alerta,
+        coste_unitario: i.coste_unitario,
+        id_categoria: i.id_categoria
+      }
+    }));
+    res.json({ inventario: result });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ----- CONSUMOS -----
 app.get('/api/v1/consumos', auth, async (req, res) => {
   try {
