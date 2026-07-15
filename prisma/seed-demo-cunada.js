@@ -12,7 +12,7 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const EMPRESA_DEMO = 'Limpiezas Valencia Centro (DEMO)';
+const EMPRESA_DEMO = 'Limpiezas Valencia Centro, S.L.';
 
 async function main() {
   console.log('→ Seed demo CleanStock (caso cuñada)...');
@@ -109,9 +109,9 @@ async function main() {
   let supervisor = await prisma.usuario.findFirst({ where: { email: 'supervisor.demo@cleanstock.com' } });
   if (!supervisor) {
     supervisor = await prisma.usuario.create({
-      data: { nombre: 'Encargada (Cuñada)', email: 'supervisor.demo@cleanstock.com', username: 'encargada', password_hash: pw, rol: 'supervisor', id_cliente: idCliente },
+      data: { nombre: 'Zaira García', email: 'supervisor.demo@cleanstock.com', username: 'zaira', password_hash: pw, rol: 'supervisor', id_cliente: idCliente },
     });
-    console.log('  ✓ Supervisor creado (encargada)');
+    console.log('  ✓ Supervisor creado (Zaira García)');
   }
   const operarios = [
     { nombre: 'María L.', centro: 'Diputación de Valencia' },
