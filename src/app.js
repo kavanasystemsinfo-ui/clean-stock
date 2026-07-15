@@ -120,6 +120,10 @@ app.get('/api/v1/dashboard/alerts', auth, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Dashboard — Desviaciones (consumo real vs. teórico) para la demo de trazabilidad
+const deviationController = require('./controllers/deviationController');
+app.get('/api/v1/dashboard/deviations', auth, deviationController.getDeviations);
+
 // ----- CATEGORIAS -----
 app.get('/api/v1/categorias', auth, async (req, res) => {
   try { 
