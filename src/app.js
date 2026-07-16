@@ -209,6 +209,17 @@ app.post('/api/v1/centros', auth, supervisorOnly, async (req, res) => {
   try { const c = await prisma.centro.create({ data: req.body }); res.json({ centro: c }); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
+app.put('/api/v1/centros/:id', auth, supervisorOnly, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const data = {};
+    if (req.body.nombre_centro !== undefined) data.nombre_centro = req.body.nombre_centro;
+    if (req.body.direccion !== undefined) data.direccion = req.body.direccion;
+    if (req.body.presupuesto_mensual !== undefined) data.presupuesto_mensual = Number(req.body.presupuesto_mensual);
+    const c = await prisma.centro.update({ where: { id_centro: id }, data });
+    res.json({ centro: c });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
 
 // ----- EMPLEADOS -----
 app.get('/api/v1/empleados', auth, supervisorOnly, async (req, res) => {

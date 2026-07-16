@@ -345,6 +345,13 @@ export async function getCentros(): Promise<Centro[]> {
   return res.centros
 }
 
+export async function updateCentro(id: number, data: Partial<{ nombre_centro: string; direccion: string; presupuesto_mensual: number }>): Promise<{ centro: Centro }> {
+  return apiFetch<{ centro: Centro }>(`/centros/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
 export async function createCentro(data: { nombre: string; direccion?: string; telefono?: string }): Promise<{ centro: Centro }> {
   return apiFetch('/centros', { method: 'POST', body: JSON.stringify(data) })
 }
