@@ -9,6 +9,7 @@ import {
   type StockConsumedPayload, type StockRestockedPayload,
 } from '../lib/socket'
 import { exportToCsv } from '../lib/csv'
+import { GuiaAyuda } from '../components/GuiaAyuda'
 
 export function Inventario() {
   const [inventory, setInventory] = useState<InventarioItem[]>([])
@@ -223,6 +224,22 @@ export function Inventario() {
           <button className="btn btn-primary" onClick={openRestock}>
             + Reponer Stock
           </button>
+          <GuiaAyuda titulo="Inventario">
+            <p>Esta pantalla muestra <strong>todo el material que hay en cada centro</strong> y te ayuda a saber cuándo comprar.</p>
+            <h3>¿Qué ves?</h3>
+            <ul>
+              <li><strong>Stock actual:</strong> lo que hay ahora.</li>
+              <li><strong>Stock mínimo:</strong> el nivel bajo del que no deberías bajar.</li>
+              <li>Si el stock está por debajo del mínimo, sale en <strong>rojo</strong> o <strong>ámbar</strong>.</li>
+            </ul>
+            <h3>📥 Propuesta de Compra</h3>
+            <p>Pulsa el botón y la app te dice <strong>qué productos faltan y cuántos comprar</strong>, con el coste estimado. Puedes descargarlo en CSV.</p>
+            <h3>+ Reponer Stock</h3>
+            <p>Para añadir material al almacén cuando llega un pedido.</p>
+            <div className="guia-ejemplo">
+              💡 <strong>Ejemplo:</strong> Beneficencia tiene 22 lejías y el mínimo es 30 → la Propuesta de Compra te dirá "pide 38 lejías (57 €)".
+            </div>
+          </GuiaAyuda>
         </div>
       </div>
 

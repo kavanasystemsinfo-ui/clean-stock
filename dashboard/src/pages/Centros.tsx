@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { getCentros, createCentro, updateCentro, type Centro } from '../lib/api'
+import { GuiaAyuda } from '../components/GuiaAyuda'
 
 export function Centros() {
   const [centros, setCentros] = useState<Centro[]>([])
@@ -71,7 +72,22 @@ export function Centros() {
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">🏢 Centros de Trabajo</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nuevo Centro</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nuevo Centro</button>
+          <GuiaAyuda titulo="Centros">
+            <p>Esta pantalla muestra <strong>tus centros de trabajo</strong> (los lugares donde limpias) y qué tienen cada uno.</p>
+            <h3>¿Qué ves en la tabla?</h3>
+            <ul>
+              <li><strong>Nombre y dirección:</strong> el centro y dónde está.</li>
+              <li><strong>Presupuesto/mes:</strong> lo que quieres gastar al mes en ese centro.</li>
+              <li><strong>Empleados y Productos:</strong> cuánta gente y qué material hay asignado.</li>
+            </ul>
+            <h3>¿Cómo ver el detalle de un centro?</h3>
+            <p><strong>Clica en cualquier fila</strong> (en el nombre). Se despliega la lista de empleados y los productos que tiene ese centro, con su stock.</p>
+            <h3>¿Cómo cambiar datos de un centro?</h3>
+            <p>Pulsa <strong>"Editar"</strong> en la fila. Puedes cambiar el nombre, la dirección y el presupuesto mensual.</p>
+          </GuiaAyuda>
+        </div>
       </div>
       {msg && <div className={`alert ${msg.includes('Error') || msg.includes('inválido') ? 'alert-danger' : 'alert-success'}`}>{msg}</div>}
 
