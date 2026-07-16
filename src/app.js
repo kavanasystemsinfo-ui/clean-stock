@@ -125,6 +125,10 @@ const deviationController = require('./controllers/deviationController');
 app.get('/api/v1/dashboard/deviations', auth, deviationController.getDeviations);
 app.post('/api/v1/inventario/:id_centro/:id_producto/conteo', auth, deviationController.guardarConteo);
 
+// Propuesta de compras (reabastecimiento por stock mínimo)
+const purchaseController = require('./controllers/purchaseController');
+app.get('/api/v1/purchases/proposal', auth, purchaseController.getProposal);
+
 // Reset de datos de demostración (solo borra clientes marcados es_demo)
 app.post('/api/v1/demo/reset', auth, async (req, res) => {
   try {

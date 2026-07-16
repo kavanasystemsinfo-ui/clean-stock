@@ -88,27 +88,28 @@ async function main() {
   //    Estructura: [centro, producto, registrado, fisico|null]
   const inventario = [
     // Diputación — todo cuadra (contado = registrado)
-    ['Diputación de Valencia', 'Papel higiénico (rollo)', 40, 40],
-    ['Diputación de Valencia', 'Lejía', 25, 25],
-    ['Diputación de Valencia', 'Guantes de limpieza', 60, 58], // -2 (leve)
-    // Beneficencia — sin contar aún (fisico null)
-    ['Beneficencia', 'Papel higiénico (rollo)', 35, null],
-    ['Beneficencia', 'Bolsas de basura', 20, null],
-    // Plaza de Toros — ANÓMALO: registrado 50, físico 30 → faltan 20
-    ['Plaza de Toros', 'Papel higiénico (rollo)', 50, 30],
-    ['Plaza de Toros', 'Lejía', 18, 18],
-    ['Plaza de Toros', 'Papel industrial (rollo)', 22, 22],
+    ['Diputación de Valencia', 'Papel higiénico (rollo)', 40, 40, 10],
+    ['Diputación de Valencia', 'Lejía', 25, 25, 8],
+    ['Diputación de Valencia', 'Guantes de limpieza', 60, 58, 10], // -2 (leve merma)
+    // Beneficencia — sin contar aún (fisico null); lejía bajo mínimo
+    ['Beneficencia', 'Papel higiénico (rollo)', 35, null, 12],
+    ['Beneficencia', 'Bolsas de basura', 20, null, 5],
+    ['Beneficencia', 'Lejía', 22, 22, 30], // registrado 22 < mínimo 30 → propuesta de compra
+    // Plaza de Toros — ANÓMALO merma: registrado 50, físico 30 → faltan 20; mínimo alto
+    ['Plaza de Toros', 'Papel higiénico (rollo)', 50, 30, 45], // registrado 50 > mínimo 45, pero merma de 20 rollos
+    ['Plaza de Toros', 'Lejía', 18, 18, 10],
+    ['Plaza de Toros', 'Papel industrial (rollo)', 22, 22, 15],
     // Museo Bellas Artes — sobra un poco (fisico > registrado, no crítico)
-    ['Museo Bellas Artes', 'Papel higiénico (rollo)', 30, 33],
-    ['Museo Bellas Artes', 'Guantes de limpieza', 45, 45],
+    ['Museo Bellas Artes', 'Papel higiénico (rollo)', 30, 33, 10],
+    ['Museo Bellas Artes', 'Guantes de limpieza', 45, 45, 10],
   ];
-  for (const [nombreCentro, nombreProd, registrado, fisico] of inventario) {
+  for (const [nombreCentro, nombreProd, registrado, fisico, minimo] of inventario) {
     const idCentro = centros[nombreCentro];
     const idProd = productos[nombreProd];
     await prisma.inventarioCentro.upsert({
       where: { id_centro_id_producto: { id_centro: idCentro, id_producto: idProd } },
-      update: { cantidad_actual: registrado, stock_fisico: fisico, fecha_actualizacion: new Date() },
-      create: { id_centro: idCentro, id_producto: idProd, cantidad_actual: registrado, stock_fisico: fisico, stock_minimo: 5 },
+      update: { cantidad_actual: registrado, stock_fisico: fisico, stock_minimo: minimo, fecha_actualizacion: new Date() },
+      create: { id_centro: idCentro, id_producto: idProd, cantidad_actual: registrado, stock_fisico: fisico, stock_minimo: minimo },
     });
   }
   console.log('  ✓ Inventario con conteo físico inicializado');
