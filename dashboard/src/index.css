@@ -643,3 +643,5 @@ tr:hover td {
     min-width: 100%;
   }
 }
+
+/* v2: detalle centro en tarjetas (force rebuild hash) */
