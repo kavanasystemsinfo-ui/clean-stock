@@ -191,9 +191,19 @@ app.post('/api/v1/productos', auth, supervisorOnly, async (req, res) => {
 // ----- CENTROS -----
 app.get('/api/v1/centros', auth, async (req, res) => {
   try {
-    const centros = await prisma.centro.findMany({ orderBy: { nombre_centro: 'asc' }, include: { _count: { select: { asignaciones: true, inventarioCentros: true } } } });
+    const usuario = req.user;
+    let idCliente = usuario?.id_cliente;
+    if (!idCliente && usuario?.id_usuario) {
+      const u = await prisma.usuario.findUnique({ where: { id_usuario: usuario.id_usuario } });
+      idCliente = u?.id_cliente;
+    }
+    const centros = await prisma.centro.findMany({
+      where: idCliente ? { id_cliente: idCliente } : {},
+      orderBy: { nombre_centro: 'asc' },
+      include: { _count: { select: { asignaciones: true, inventarioCentros: true } } },
+    });
     res.json({ centros });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/v1/centros', auth, supervisorOnly, async (req, res) => {
   try { const c = await prisma.centro.create({ data: req.body }); res.json({ centro: c }); }
