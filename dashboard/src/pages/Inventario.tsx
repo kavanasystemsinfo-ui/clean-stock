@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   getInventory, restock, getCentros, getPurchaseProposal,
-  type InventarioItem, type Centro,
+  getCatalogoProductos, createProducto, addProductoCentro,
+  type InventarioItem, type Centro, type Producto,
 } from '../lib/api'
 import {
   connect, disconnect, subscribe,
@@ -32,6 +33,19 @@ export function Inventario() {
   const [restockCantidad, setRestockCantidad] = useState(1)
   const [restockLoading, setRestockLoading] = useState(false)
   const [restockError, setRestockError] = useState('')
+
+  // Nuevo producto modal
+  const [showNuevoProd, setShowNuevoProd] = useState(false)
+  const [catalogo, setCatalogo] = useState<Producto[]>([])
+  const [npNombre, setNpNombre] = useState('')
+  const [npUnidad, setNpUnidad] = useState('unidades')
+  const [npCoste, setNpCoste] = useState('')
+  const [npMinimo, setNpMinimo] = useState('')
+  const [npCentro, setNpCentro] = useState('')
+  const [npCantidad, setNpCantidad] = useState('')
+  const [npLoading, setNpLoading] = useState(false)
+  const [npError, setNpError] = useState('')
+  const [npSuccess, setNpSuccess] = useState('')
 
   // Ref para evitar doble conexión en modo Strict
   const socketInitialized = useRef(false)
@@ -147,6 +161,67 @@ export function Inventario() {
     setShowRestock(true)
   }
 
+  const openNuevoProd = async () => {
+    setNpError('')
+    setNpSuccess('')
+    setNpNombre('')
+    setNpUnidad('unidades')
+    setNpCoste('')
+    setNpMinimo('')
+    setNpCentro('')
+    setNpCantidad('')
+    try {
+      const cats = await getCatalogoProductos()
+      setCatalogo(cats)
+    } catch {
+      setCatalogo([])
+    }
+    setShowNuevoProd(true)
+  }
+
+  const handleCrearProducto = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!npNombre.trim()) {
+      setNpError('Escribe el nombre del producto.')
+      return
+    }
+    const coste = parseFloat(npCoste)
+    const minimo = parseInt(npMinimo) || 0
+    if (isNaN(coste) || coste < 0) {
+      setNpError('El coste debe ser un número válido.')
+      return
+    }
+    setNpLoading(true)
+    setNpError('')
+    try {
+      const { producto } = await createProducto({
+        nombre_producto: npNombre.trim(),
+        unidad_medida: npUnidad,
+        coste_unitario: coste,
+        stock_minimo_alerta: minimo,
+      })
+      // Si eligió centro, lo añadimos al inventario de ese centro
+      if (npCentro) {
+        const cant = parseInt(npCantidad) || 0
+        await addProductoCentro({
+          id_centro: parseInt(npCentro),
+          id_producto: producto.id_producto,
+          cantidad_actual: cant,
+          stock_minimo: minimo,
+        })
+        setNpSuccess(`"${producto.nombre_producto}" creado y añadido al centro.`)
+      } else {
+        setNpSuccess(`"${producto.nombre_producto}" creado en el catálogo.`)
+      }
+      await loadData()
+      setTimeout(() => { setShowNuevoProd(false); setNpSuccess('') }, 1200)
+    } catch (err: any) {
+      setNpError(err?.message || 'Error al crear el producto.')
+    } finally {
+      setNpLoading(false)
+    }
+  }
+
   const handleRestock = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!restockCentro || !restockProducto || restockCantidad < 1) {
@@ -224,6 +299,9 @@ export function Inventario() {
           <button className="btn btn-primary" onClick={openRestock}>
             + Reponer Stock
           </button>
+          <button className="btn btn-primary" onClick={openNuevoProd}>
+            ➕ Nuevo Producto
+          </button>
           <GuiaAyuda titulo="Inventario">
             <p>Esta pantalla muestra <strong>todo el material que hay en cada centro</strong> y te ayuda a saber cuándo comprar.</p>
             <h3>¿Qué ves?</h3>
@@ -236,6 +314,8 @@ export function Inventario() {
             <p>Pulsa el botón y la app te dice <strong>qué productos faltan y cuántos comprar</strong>, con el coste estimado. Puedes descargarlo en CSV.</p>
             <h3>+ Reponer Stock</h3>
             <p>Para añadir material al almacén cuando llega un pedido.</p>
+            <h3>➕ Nuevo Producto</h3>
+            <p>Para <strong>crear un producto que no existe todavía</strong> en el sistema (ej. un tipo de guante nuevo). Escribe el nombre, la unidad (rollos, litros, pares...), el coste y el stock mínimo. Opcionalmente elígelo centro para añadirlo directamente a su inventario con su cantidad inicial.</p>
             <div className="guia-ejemplo">
               💡 <strong>Ejemplo:</strong> Beneficencia tiene 22 lejías y el mínimo es 30 → la Propuesta de Compra te dirá "pide 38 lejías (57 €)".
             </div>
@@ -358,6 +438,70 @@ export function Inventario() {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={restockLoading}>
                   {restockLoading ? 'Reponiendo...' : 'Reponer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Nuevo Producto */}
+      {showNuevoProd && (
+        <div className="modal-backdrop" onClick={() => setShowNuevoProd(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+            <div className="modal-header">
+              <h3>➕ Nuevo Producto</h3>
+              <button className="modal-close" onClick={() => setShowNuevoProd(false)}>✕</button>
+            </div>
+            {npSuccess && <div className="alert alert-success">{npSuccess}</div>}
+            {npError && <div className="alert alert-danger">{npError}</div>}
+            <form onSubmit={handleCrearProducto}>
+              <div className="form-group">
+                <label className="form-label">Nombre del producto *</label>
+                <input className="form-input" value={npNombre} onChange={(e) => setNpNombre(e.target.value)} placeholder="Ej: Guantes de latex (par)" required />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Unidad</label>
+                  <select className="form-select" value={npUnidad} onChange={(e) => setNpUnidad(e.target.value)}>
+                    <option value="unidades">unidades</option>
+                    <option value="rollos">rollos</option>
+                    <option value="litros">litros</option>
+                    <option value="pares">pares</option>
+                    <option value="paquetes">paquetes</option>
+                    <option value="cajas">cajas</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Coste unitario (€)</label>
+                  <input className="form-input" type="number" step="0.01" min="0" value={npCoste} onChange={(e) => setNpCoste(e.target.value)} placeholder="0.00" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Stock mínimo (alerta)</label>
+                  <input className="form-input" type="number" min="0" value={npMinimo} onChange={(e) => setNpMinimo(e.target.value)} placeholder="0" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Añadir a centro (opcional)</label>
+                  <select className="form-select" value={npCentro} onChange={(e) => setNpCentro(e.target.value)}>
+                    <option value="">Solo al catálogo</option>
+                    {centros.map((c) => (
+                      <option key={c.id_centro} value={c.id_centro}>{c.nombre_centro}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {npCentro && (
+                <div className="form-group">
+                  <label className="form-label">Cantidad inicial en el centro</label>
+                  <input className="form-input" type="number" min="0" value={npCantidad} onChange={(e) => setNpCantidad(e.target.value)} placeholder="0" />
+                </div>
+              )}
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setShowNuevoProd(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" disabled={npLoading}>
+                  {npLoading ? 'Creando...' : 'Crear producto'}
                 </button>
               </div>
             </form>

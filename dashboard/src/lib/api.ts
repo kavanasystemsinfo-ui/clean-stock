@@ -396,6 +396,37 @@ export async function getProductos(): Promise<Producto[]> {
   return productos
 }
 
+// Catálogo completo de productos (todos, no solo los asignados a centros)
+export async function getCatalogoProductos(): Promise<Producto[]> {
+  return apiFetch<Producto[]>('/productos')
+}
+
+// Crear un producto nuevo en el catálogo global
+export async function createProducto(data: {
+  nombre_producto: string
+  unidad_medida: string
+  coste_unitario: number
+  stock_minimo_alerta: number
+}): Promise<{ producto: Producto }> {
+  return apiFetch<{ producto: Producto }>('/productos', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+// Añadir (o actualizar) un producto en el inventario de un centro
+export async function addProductoCentro(data: {
+  id_centro: number
+  id_producto: number
+  cantidad_actual: number
+  stock_minimo?: number
+}): Promise<any> {
+  return apiFetch('/inventario', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
 // --- Deviations (mermas de inventario: registrado vs físico) ---
 export interface DeviationItem {
   centro: { id_centro: number; nombre_centro: string }
