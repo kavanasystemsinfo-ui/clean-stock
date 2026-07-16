@@ -57,9 +57,10 @@ async function main() {
       });
       console.log('  ✓ Centro creado:', c.nombre_centro, `(presu ${def.presu}€)`);
     } else {
-      // Actualiza el presupuesto y la dirección por si cambiaron en el seed
-      c = await prisma.centro.update({ where: { id_centro: c.id_centro }, data: { presupuesto_mensual: def.presu, direccion: def.dir } });
-      console.log('  • Centro ya existe:', c.nombre_centro, `(presu ${def.presu}€)`);
+      // Centro ya existe: NO tocar presupuesto_mensual ni dirección.
+      // El seed solo crea datos iniciales; los valores editados por el usuario
+      // (presupuesto, dirección) deben persistir y no ser sobreescritos.
+      console.log('  • Centro ya existe:', c.nombre_centro, `(presu ${c.presupuesto_mensual ?? '—'}€ — sin cambios)`);
     }
     centros[nombre] = c.id_centro;
   }
