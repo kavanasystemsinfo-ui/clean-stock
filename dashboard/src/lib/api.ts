@@ -398,7 +398,8 @@ export async function getProductos(): Promise<Producto[]> {
 
 // Catálogo completo de productos (todos, no solo los asignados a centros)
 export async function getCatalogoProductos(): Promise<Producto[]> {
-  return apiFetch<Producto[]>('/productos')
+  const res = await apiFetch<{ productos: Producto[] }>('/productos')
+  return res.productos || []
 }
 
 // Crear un producto nuevo en el catálogo global

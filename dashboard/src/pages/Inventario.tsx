@@ -41,8 +41,6 @@ export function Inventario() {
   const [npUnidad, setNpUnidad] = useState('unidades')
   const [npCoste, setNpCoste] = useState('')
   const [npMinimo, setNpMinimo] = useState('')
-  const [npCentro, setNpCentro] = useState('')
-  const [npCantidad, setNpCantidad] = useState('')
   const [npLoading, setNpLoading] = useState(false)
   const [npError, setNpError] = useState('')
   const [npSuccess, setNpSuccess] = useState('')
@@ -168,8 +166,8 @@ export function Inventario() {
     setNpUnidad('unidades')
     setNpCoste('')
     setNpMinimo('')
-    setNpCentro('')
-    setNpCantidad('')
+    setNpError('')
+    setNpSuccess('')
     try {
       const cats = await getCatalogoProductos()
       setCatalogo(cats)
@@ -200,19 +198,7 @@ export function Inventario() {
         coste_unitario: coste,
         stock_minimo_alerta: minimo,
       })
-      // Si eligió centro, lo añadimos al inventario de ese centro
-      if (npCentro) {
-        const cant = parseInt(npCantidad) || 0
-        await addProductoCentro({
-          id_centro: parseInt(npCentro),
-          id_producto: producto.id_producto,
-          cantidad_actual: cant,
-          stock_minimo: minimo,
-        })
-        setNpSuccess(`"${producto.nombre_producto}" creado y añadido al centro.`)
-      } else {
-        setNpSuccess(`"${producto.nombre_producto}" creado en el catálogo.`)
-      }
+      setNpSuccess(`"${producto.nombre_producto}" creado en el catálogo.`)
       await loadData()
       setTimeout(() => { setShowNuevoProd(false); setNpSuccess('') }, 1200)
     } catch (err: any) {
@@ -445,13 +431,13 @@ export function Inventario() {
         </div>
       )}
 
-      {/* Modal: Nuevo Producto */}
+      {/* Modal: Nuevo Producto (catálogo general) */}
       {showNuevoProd && (
-        <div className="modal-backdrop" onClick={() => setShowNuevoProd(false)}>
+        <div className="modal-overlay" onClick={() => setShowNuevoProd(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
-            <div className="modal-header">
-              <h3>➕ Nuevo Producto</h3>
-              <button className="modal-close" onClick={() => setShowNuevoProd(false)}>✕</button>
+            <div className="modal-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>➕ Nuevo Producto</span>
+              <button type="button" className="btn btn-outline" style={{ padding: '0.25rem 0.6rem' }} onClick={() => setShowNuevoProd(false)}>✕</button>
             </div>
             {npSuccess && <div className="alert alert-success">{npSuccess}</div>}
             {npError && <div className="alert alert-danger">{npError}</div>}
@@ -477,27 +463,13 @@ export function Inventario() {
                   <input className="form-input" type="number" step="0.01" min="0" value={npCoste} onChange={(e) => setNpCoste(e.target.value)} placeholder="0.00" />
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Stock mínimo (alerta)</label>
-                  <input className="form-input" type="number" min="0" value={npMinimo} onChange={(e) => setNpMinimo(e.target.value)} placeholder="0" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Añadir a centro (opcional)</label>
-                  <select className="form-select" value={npCentro} onChange={(e) => setNpCentro(e.target.value)}>
-                    <option value="">Solo al catálogo</option>
-                    {centros.map((c) => (
-                      <option key={c.id_centro} value={c.id_centro}>{c.nombre_centro}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="form-group">
+                <label className="form-label">Stock mínimo (alerta)</label>
+                <input className="form-input" type="number" min="0" value={npMinimo} onChange={(e) => setNpMinimo(e.target.value)} placeholder="0" />
               </div>
-              {npCentro && (
-                <div className="form-group">
-                  <label className="form-label">Cantidad inicial en el centro</label>
-                  <input className="form-input" type="number" min="0" value={npCantidad} onChange={(e) => setNpCantidad(e.target.value)} placeholder="0" />
-                </div>
-              )}
+              <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+                💡 El producto se guarda en el catálogo general. Para usarlo en un centro, ve a la pestaña <strong>Centros</strong> y añádelo desde el detalle.
+              </p>
               <div className="modal-actions">
                 <button type="button" className="btn btn-outline" onClick={() => setShowNuevoProd(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={npLoading}>
