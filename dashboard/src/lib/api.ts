@@ -31,7 +31,27 @@ export interface Centro {
   nombre_centro: string
   direccion?: string
   telefono?: string
-  _count?: { usuarios?: number; inventario_centros?: number }
+  presupuesto_mensual?: number
+  _count?: { asignaciones?: number; inventarioCentros?: number }
+  asignaciones?: Array<{
+    id_asignacion: number
+    usuario: {
+      id_usuario: number
+      nombre: string
+      email: string
+      rol: string
+      numero_empleado?: string
+      telefono?: string
+    }
+  }>
+  inventarioCentros?: Array<{
+    id_centro: number
+    id_producto: number
+    cantidad_actual: number
+    stock_fisico: number | null
+    stock_minimo: number
+    producto: { id_producto: number; nombre_producto: string; unidad_medida: string }
+  }>
 }
 
 export interface Empleado {
@@ -42,6 +62,12 @@ export interface Empleado {
   numero_empleado?: string
   estado: string
   centro?: Centro
+  asignaciones?: Array<{
+    id_asignacion: number
+    fecha_inicio: string
+    fecha_fin: string | null
+    centro: { id_centro: number; nombre_centro: string }
+  }>
 }
 
 export interface Producto {

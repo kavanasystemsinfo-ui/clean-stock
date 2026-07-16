@@ -9,10 +9,22 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const { PrismaClient } = require('@prisma/client');
+const logger = require('./lib/logger');
 
 const app = express();
 app.set('trust proxy', true);
-app.use(cors({ origin: true, credentials: true }));
+// CORS: whitelist de orígenes (evita reflejar cualquier dominio con credentials)
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:4001,http://localhost:4000')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // Permitir requests sin Origin (curl, Postman, server-to-server)
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Origen no permitido por CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 const prisma = new PrismaClient();
 const jwtSecretRaw = process.env.JWT_SECRET;
@@ -65,9 +77,9 @@ app.post('/api/v1/auth/login', async (req, res) => {
       ? await prisma.usuario.findUnique({ where: { email } })
       : await prisma.usuario.findFirst({ where: { username: email } });
     if (!u || !(await bcrypt.compare(password, u.password_hash))) return res.status(401).json({ error: 'Credenciales invalidas' });
-    const token = jwt.sign({ id_usuario: u.id_usuario, email: u.email, rol: u.rol, is_super_admin: u.is_super_admin, id_cliente: u.id_cliente }, JWT_SECRET, { expiresIn: '12h' });
+    const token = jwt.sign({ id_usuario: u.id_usuario, email: u.email, rol: u.rol, is_super_admin: u.is_super_admin, id_cliente: u.id_cliente }, JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '2h' });
     res.json({ token, usuario: { id_usuario: u.id_usuario, nombre: u.nombre, email: u.email, username: u.username, rol: u.rol, is_super_admin: u.is_super_admin } });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 // ----- DASHBOARD -----
@@ -171,7 +183,6 @@ app.post('/api/v1/demo/reset', auth, async (req, res) => {
       const id = cli.id_cliente;
       await prisma.registroMovimiento.deleteMany({ where: { centro: { id_cliente: id } } });
       await prisma.inventarioCentro.deleteMany({ where: { centro: { id_cliente: id } } });
-      await prisma.consumoTeorico.deleteMany({ where: { centro: { id_cliente: id } } });
       await prisma.asignacionPersonal.deleteMany({ where: { centro: { id_cliente: id } } });
       const uids = (await prisma.usuario.findMany({ where: { id_cliente: id } })).map(u => u.id_usuario);
       await prisma.reglaNotificacion.deleteMany({ where: { id_supervisor: { in: uids } } });
@@ -181,8 +192,8 @@ app.post('/api/v1/demo/reset', auth, async (req, res) => {
     }
     res.json({ ok: true, mensaje: 'Datos de demostración eliminados. Panel limpio listo.' });
   } catch (e) {
-    console.error('[demo/reset]', e);
-    res.status(500).json({ error: e.message });
+    logger.error('demo/reset', e);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -192,7 +203,7 @@ app.get('/api/v1/categorias', auth, async (req, res) => {
     const cats = await prisma.$queryRawUnsafe(`SELECT id_categoria, nombre, icono, descripcion FROM categorias ORDER BY nombre`);
     res.json({ categorias: cats }); 
   }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 app.post('/api/v1/categorias', auth, supervisorOnly, async (req, res) => {
   try {
@@ -244,7 +255,7 @@ app.put('/api/v1/productos/:id', auth, supervisorOnly, async (req, res) => {
     if (req.body.stock_minimo_alerta !== undefined) data.stock_minimo_alerta = Number(req.body.stock_minimo_alerta);
     const p = await prisma.producto.update({ where: { id_producto: id }, data });
     res.json({ producto: p });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 app.delete('/api/v1/productos/:id', auth, supervisorOnly, async (req, res) => {
   try {
@@ -255,7 +266,7 @@ app.delete('/api/v1/productos/:id', auth, supervisorOnly, async (req, res) => {
     }
     await prisma.producto.delete({ where: { id_producto: id } });
     res.json({ ok: true });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 // ----- CENTROS -----
@@ -277,7 +288,7 @@ app.get('/api/v1/centros', auth, async (req, res) => {
       },
     });
     res.json({ centros });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 app.post('/api/v1/centros', auth, supervisorOnly, async (req, res) => {
   try {
@@ -316,7 +327,7 @@ app.put('/api/v1/centros/:id', auth, supervisorOnly, async (req, res) => {
     if (req.body.presupuesto_mensual !== undefined) data.presupuesto_mensual = Number(req.body.presupuesto_mensual);
     const c = await prisma.centro.update({ where: { id_centro: id }, data });
     res.json({ centro: c });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 // ----- EMPLEADOS -----
@@ -334,7 +345,7 @@ app.get('/api/v1/empleados', auth, supervisorOnly, async (req, res) => {
       orderBy: { nombre: 'asc' },
     });
     res.json({ empleados: emps });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 app.post('/api/v1/empleados', auth, supervisorOnly, async (req, res) => {
   try {
@@ -377,7 +388,7 @@ app.get('/api/v1/asignaciones/active', auth, async (req, res) => {
     });
     if (!asignacion) return res.status(404).json({ error: 'No tienes un centro asignado' });
     res.json({ asignacion: { centro: asignacion.centro } });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 // ----- INVENTARIO (scoping multi-tenant) -----
@@ -497,7 +508,7 @@ app.post('/api/v1/stock/consume', auth, async (req, res) => {
       inventario: { id_centro, id_producto, cantidad_actual: updated.cantidad_actual, producto: { id_producto: updated.producto.id_producto, nombre_producto: updated.producto.nombre_producto, unidad_medida: updated.producto.unidad_medida, stock_minimo_alerta: updated.producto.stock_minimo_alerta } },
       movimiento: { id_movimiento: mov.id_movimiento, cantidad: mov.cantidad, fecha_hora: mov.fecha_hora }
     });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 // ----- CONSUMOS (scoping multi-tenant) -----
@@ -666,7 +677,7 @@ app.post('/api/v1/auth/register-empresa', async (req, res) => {
     });
   } catch(e) {
     if (e.code === 'P2002') return res.status(409).json({ error: 'El email ya está registrado' });
-    res.status(500).json({ error: e.message });
+    logger.error('api', e); res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -681,7 +692,7 @@ app.get('/api/v1/admin/clientes', auth, superAdminOnly, async (req, res) => {
       orderBy: { fecha_registro: 'desc' }
     });
     res.json({ clientes });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 app.get('/api/v1/admin/clientes/:id', auth, superAdminOnly, async (req, res) => {
@@ -695,7 +706,7 @@ app.get('/api/v1/admin/clientes/:id', auth, superAdminOnly, async (req, res) => 
     });
     if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado' });
     res.json({ cliente });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 app.put('/api/v1/admin/clientes/:id', auth, superAdminOnly, async (req, res) => {
@@ -713,7 +724,7 @@ app.put('/api/v1/admin/clientes/:id', auth, superAdminOnly, async (req, res) => 
       data,
     });
     res.json({ cliente, mensaje: 'Cliente actualizado' });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 app.get('/api/v1/admin/stats', auth, superAdminOnly, async (req, res) => {
@@ -726,7 +737,7 @@ app.get('/api/v1/admin/stats', auth, superAdminOnly, async (req, res) => {
     const pro = await prisma.cliente.count({ where: { plan: 'pro' } });
     const ingresos_mensuales = (basic * 9) + (pro * 29);
     res.json({ stats: { total, activos, trials, expirados, basic, pro, ingresos_mensuales } });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { logger.error('api', e); res.status(500).json({ error: 'Error interno' }); }
 });
 
 // Login ahora también devuelve is_super_admin

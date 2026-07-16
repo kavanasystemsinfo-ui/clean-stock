@@ -329,6 +329,51 @@ describe('SECURITY: multi-tenant isolation', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// M7 — Cobertura de escritura (happy-path + mass-assignment denegado)
+// ---------------------------------------------------------------------------
+describe('Escritura: centros / productos / stock', () => {
+  let centroId = null;
+  beforeAll(async () => {
+    const r = await request(app).get('/api/v1/centros').set('Authorization', `Bearer ${token}`);
+    centroId = r.body.centros?.[0]?.id_centro ?? null;
+  });
+
+  it('PUT /centros/:id actualiza nombre (happy path)', async () => {
+    if (!centroId) return;
+    const res = await request(app)
+      .put(`/api/v1/centros/${centroId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nombre_centro: 'Centro Test Edit' });
+    expect(res.status).toBe(200);
+    expect(res.body.centro.nombre_centro).toBe('Centro Test Edit');
+    // revertir
+    await request(app).put(`/api/v1/centros/${centroId}`).set('Authorization', `Bearer ${token}`).send({ nombre_centro: 'Beneficencia' });
+  });
+
+  it('POST /productos rechaza id_cliente inyectado (mass-assignment)', async () => {
+    const res = await request(app)
+      .post('/api/v1/productos')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ nombre_producto: 'Prod Test MA', unidad_medida: 'ud', coste_unitario: 1, id_cliente: 99999 });
+    expect(res.status).toBe(200);
+    expect(res.body.producto.id_cliente).toBeUndefined();
+    // limpiar
+    if (res.body.producto?.id_producto) {
+      await request(app).delete(`/api/v1/productos/${res.body.producto.id_producto}`).set('Authorization', `Bearer ${token}`);
+    }
+  });
+
+  it('DELETE /productos/:id borra (happy path)', async () => {
+    const c = await request(app).post('/api/v1/productos').set('Authorization', `Bearer ${token}`)
+      .send({ nombre_producto: 'Prod Test Del', unidad_medida: 'ud', coste_unitario: 1 });
+    const id = c.body.producto?.id_producto;
+    expect(id).toBeTruthy();
+    const del = await request(app).delete(`/api/v1/productos/${id}`).set('Authorization', `Bearer ${token}`);
+    expect(del.status).toBe(200);
+  });
+});
+
 afterAll(async () => {
   await prisma.$disconnect();
 });
