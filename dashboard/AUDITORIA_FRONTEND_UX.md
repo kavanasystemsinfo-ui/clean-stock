@@ -22,9 +22,8 @@ Existen los archivos `pages/Notifications.tsx`, `pages/Asignaciones.tsx` y `page
 `Alerts` llama `connect()`/`subscribe('stock:alert')`/`disconnect()` en su `useEffect`. Como la página no está enrutada (ver #2), este código nunca se ejecuta, así que **las alertas en tiempo real nunca llegan**. Además, si se enrutara, `disconnect()` en cleanup mata el socket global para toda la app.
 **Fix:** mover la suscripción Socket.IO a un lugar siempre montado (p.ej. `Layout` o un hook global) o enrutar Alerts y no desconectar el socket global en el unmount de una vista.
 
-**4. `pages/Centros.tsx + Empleados.tsx — API devuelve campos no tipados (`as any` en cascada)**
-La interfaz `Centro` en `api.ts:29` solo declara `id_centro, nombre_centro, direccion?, telefono?, _count?`. Pero la API devuelve `asignaciones`, `inventarioCentros` y `presupuesto_mensual` en el objeto centro. El frontend los lee con `(c as any).asignaciones`, `(c as any).inventarioCentros`, `(c as any).presupuesto_mensual` (Centros.tsx:191,192,205; Empleados.tsx:38,48,96,128). Esto es exactamente el patrón que produjo el bug `b.map is not a function`: **si el backend cambia el nombre del campo o lo envuelve, el `.map` silencia `undefined`/objeto y revienta en runtime sin tipar**.
-**Fix:** extender `Centro` con `asignaciones?: any[]; inventarioCentros?: any[]; presupuesto_mensual?: number` y eliminar los `as any`.
+**#4. `pages/Centros.tsx + Empleados.tsx — API devuelve campos no tipados (`as any` en cascada)** — **✅ CORREGIDO (M11, julio 2026)**
+La interfaz `Centro` en `api.ts:29` ha sido extendida con `asignaciones`, `inventarioCentros` y `presupuesto_mensual`. La interfaz `Empleado` incluye `asignaciones`. Todos los `as any` (14 en total) han sido eliminados. `tsc --noEmit` exit 0.
 
 **5. `lib/api.ts:387-397` — `getProductos` ya defiende contra `{productos:[...]}`; pero hay llamadores frágiles**
 El bug reportado `b.map is not a function` venía de asumir array cuando la API devuelve `{productos:[...]}`. Hoy `getProductos`/`getCatalogoProductos` ya hacen `return res.productos || []` — **OK, corregido**. Riesgo residual: `getEmpleados`, `getCentros`, `getCategorias`, `getUsuarios`, `getAsignaciones`, `getInventory`, `getConsumos` confían en que el backend SIEMPRE envuelve en la clave correcta; si alguna deja de hacerlo, el `.map` en la página rompe igual. `getConsumption`/`getAlerts`/`getDeviations`/`getCostes` NO unwrap (esperan el objeto entero) y se usarían como `.resumen_por_centro.map` — frágil si el backend cambia el shape.
@@ -79,16 +78,16 @@ Deviations valida número ≥0 (líneas 52-56); Costes valida importe (37); Asig
 
 | # | Categoría | Veredicto |
 |---|-----------|-----------|
-| 1 | Errores silenciosos (401/403, `.map` en objeto) | **403 NO manejado** (#1); el bug `.map` original ya está corregido en `getProductos` (#5) pero el riesgo persiste por interfaces Centro incompletas (#4) |
+| 1 | Errores silenciosos (401/403, `.map` en objeto) | **403 NO manejado** (#1); `as any` corregido (#4, M11) |
 | 2 | Caché / token viejo | Token viejo no fuerza logout en 403 (#1); "sin empresa" no detectado (#11); no hay caché corrupta pero sí datos desactualizados entre vistas (#12) |
 | 3 | Validación formularios | Inventario/Centros(add)/Deviations/Costes/Asignaciones: **OK**; **Empleados y Crear-Centro tienen huecos** (#6, #7) |
 | 4 | Accesibilidad | Sin focus trap ni `role="dialog"` en modales (#8); botones-icono sin `aria-label` (#9); contraste gris-400 insuficiente (#10) |
 | 5 | Estados carga/error | **OK** en todas las páginas (spinner + alertas visibles) |
 
-## Prioridad de arreglo
-1. #2 + #3 (rutas/alertas en tiempo real — funcionalidad rota)
-2. #1 (403 → logout)
-3. #4 (tipado Centro, eliminar `as any`)
-4. #8/#9/#10 (a11y: focus trap, aria-label, contraste)
+## Prioridad de arreglo — Estado actual
+1. ~~#4 (tipado Centro, eliminar `as any`)~~ → **✅ CORREGIDO (M11)**
+2. #2 + #3 (rutas/alertas en tiempo real — funcionalidad rota)
+3. #1 (403 → logout) → **✅ CORREGIDO (A7)**
+4. #8/#9/#10 (a11y: focus trap, aria-label, contraste) → **✅ CORREGIDO (M12-M14)**
 5. #6/#7 (validación Empleados/Crear Centro)
 6. #11/#12 (empresa asociada, re-fetch entre vistas)

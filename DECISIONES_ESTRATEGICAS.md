@@ -6,7 +6,7 @@ Este documento registra el "por qué" de las decisiones arquitectónicas y de di
 
 ## 1. Validación de Cantidades de Consumo Positivas en la API
 * **Problema**: El diseño original de la API de consumo (`/stock/consume`) requería que la cantidad enviada en el body fuera negativa (ej. `cantidad: -3`). Esto introducía un riesgo de seguridad de inyección: si un atacante enviaba una cantidad positiva (ej. `cantidad: 3`), y la lógica hacía `cantidad_actual + cantidad` para actualizar el stock, el inventario se incrementaba artificialmente de forma fraudulenta.
-* **Solución**: Se modificó el esquema de validación Zod (`consumeStockSchema`) en el backend para validar que la cantidad recibida sea estrictamente un número entero **positivo** (> 0).
+* **Solución**: Se modificó el handler en `src/app.js` para validar que la cantidad recibida sea estrictamente un número entero **positivo** (> 0). No se usa librería de schemas (Zod); la validación es manual en el handler `POST /stock/consume`.
 * **Decisión Técnica**: 
   - El frontend (móvil) envía la cantidad como un número positivo (`Math.abs(cantidad)`).
   - La base de datos sigue registrando el movimiento como negativo (`-cantidad`) en `registroMovimiento` para mantener la integridad histórica del almacén donde los consumos son salidas.
@@ -44,9 +44,9 @@ Este documento registra el "por qué" de las decisiones arquitectónicas y de di
 ## 7. Arquitectura del Motor de Notificaciones por Eventos
 * **Problema**: Los supervisores querían ser avisados de robos o consumos excesivos de material. No querían recibir un email por cada cepillo que se cogiera, sino establecer reglas precisas (ej. "Solo avísame si sacan Lejía en el CEIP San Juan").
 * **Solución**: Creación de un sistema de "Reglas de Notificación" que actúa como un Webhook interno.
-* **Decisión Técnica**: En lugar de saturar el frontend con lógica de reglas, el controlador de stock (`stockController.js`), cada vez que registra un consumo, consulta la tabla `ReglasNotificacion`. Si el consumo hace "match" (coincide el `id_centro`, `id_producto` o `id_operario`), se crea una `Notificacion` asíncrona. La PWA y el Dashboard consultan estas notificaciones sin interrumpir el flujo del limpiador.
+* **Decisión Técnica**: En lugar de saturar el frontend con lógica de reglas, el handler de stock en `src/app.js`, cada vez que registra un consumo, podría consultar la tabla `ReglasNotificacion`. **Actualmente esto no está implementado** — las notificaciones son planificadas (el Módulo E de enterprise).
 
 ## 8. Tratamiento de Errores Cors (El falso Error 500)
 * **Problema**: Tras configurar la variable de entorno `CORS_ORIGIN=*`, el sistema devolvía un `500 Internal Server Error` bloqueando todos los inicios de sesión desde React. Express interceptaba el fallo del middleware CORS nativo y lo encapsulaba como un error global de servidor, en lugar de un `403 Forbidden`.
-* **Solución**: Se implementó una lógica de validación CORS condicional robusta en `server.js`.
+* **Solución**: Se implementó una lógica de validación CORS condicional robusta en `src/app.js`.
 * **Decisión Técnica**: Se parcheó la función de retorno (callback) del CORS. Ahora comprueba explícitamente `if (allowedOrigins.includes('*')) return callback(null, true);`. Esto evita que la librería evalúe literalmente el asterisco como una URL inválida.
