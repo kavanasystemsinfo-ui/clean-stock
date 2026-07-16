@@ -15,7 +15,12 @@ app.set('trust proxy', true);
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'cleanstock-jwt-secret';
+const jwtSecretRaw = process.env.JWT_SECRET;
+if (process.env.NODE_ENV === 'production' && !jwtSecretRaw) {
+  console.error('[FATAL] JWT_SECRET no definido en producción. Abortando arranque.');
+  process.exit(1);
+}
+const JWT_SECRET = jwtSecretRaw || 'cleanstock-jwt-secret-dev';
 
 // ----- Auth middleware -----
 // Resuelve id_cliente desde BD y lo popula en req.user para que los handlers

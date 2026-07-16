@@ -75,9 +75,9 @@ model Centro {
   nombre_centro String
   direccion           String?
   presupuesto_mensual Float     @default(0.0)
-  id_cliente    Int?
+  id_cliente    Int       // OBLIGATORIO: un centro SIEMPRE pertenece a una empresa (evita huérfanos que escapan al scoping)
 
-  cliente             Cliente?  @relation(fields: [id_cliente], references: [id_cliente])
+  cliente             Cliente  @relation(fields: [id_cliente], references: [id_cliente])
   asignaciones        AsignacionPersonal[]
   inventarioCentros   InventarioCentro[]
   registroMovimientos RegistroMovimiento[]
