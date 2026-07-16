@@ -40,23 +40,26 @@ async function main() {
 
   const idCliente = cliente.id_cliente;
 
-  // 2. Centros (sus centros reales)
+  // 2. Centros (sus centros reales) — con presupuesto mensual distinto para la demo
   const centrosDef = [
-    'Diputación de Valencia',
-    'Beneficencia',
-    'Plaza de Toros',
-    'Museo Bellas Artes',
+    { nombre: 'Diputación de Valencia', presu: 100 },
+    { nombre: 'Beneficencia', presu: 25 },
+    { nombre: 'Plaza de Toros', presu: 15 },
+    { nombre: 'Museo Bellas Artes', presu: 50 },
   ];
   const centros = {};
-  for (const nombre of centrosDef) {
+  for (const def of centrosDef) {
+    const nombre = def.nombre;
     let c = await prisma.centro.findFirst({ where: { nombre_centro: nombre, id_cliente: idCliente } });
     if (!c) {
       c = await prisma.centro.create({
-        data: { nombre_centro: nombre, direccion: 'Valencia', presupuesto_mensual: 1500, id_cliente: idCliente },
+        data: { nombre_centro: nombre, direccion: 'Valencia', presupuesto_mensual: def.presu, id_cliente: idCliente },
       });
-      console.log('  ✓ Centro creado:', c.nombre_centro);
+      console.log('  ✓ Centro creado:', c.nombre_centro, `(presu ${def.presu}€)`);
     } else {
-      console.log('  • Centro ya existe:', c.nombre_centro);
+      // Actualiza el presupuesto por si cambió en el seed
+      c = await prisma.centro.update({ where: { id_centro: c.id_centro }, data: { presupuesto_mensual: def.presu } });
+      console.log('  • Centro ya existe:', c.nombre_centro, `(presu ${def.presu}€)`);
     }
     centros[nombre] = c.id_centro;
   }

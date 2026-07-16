@@ -129,6 +129,11 @@ app.post('/api/v1/inventario/:id_centro/:id_producto/conteo', auth, deviationCon
 const purchaseController = require('./controllers/purchaseController');
 app.get('/api/v1/purchases/proposal', auth, purchaseController.getProposal);
 
+// Costes por centro (Fase 2: control de coste vs presupuesto)
+const costeController = require('./controllers/costeController');
+app.get('/api/v1/dashboard/costes', auth, costeController.getCostes);
+app.post('/api/v1/centros/:id_centro/presupuesto', auth, costeController.setPresupuesto);
+
 // Reset de datos de demostración (solo borra clientes marcados es_demo)
 app.post('/api/v1/demo/reset', auth, async (req, res) => {
   try {
