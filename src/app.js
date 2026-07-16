@@ -239,6 +239,18 @@ app.post('/api/v1/centros', auth, supervisorOnly, async (req, res) => {
 app.put('/api/v1/centros/:id', auth, supervisorOnly, async (req, res) => {
   try {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Centro inválido' });
+    // Scoping multi-tenant: el centro debe pertenecer al cliente del usuario.
+    let idCliente = req.user?.id_cliente;
+    if (!idCliente && req.user?.id_usuario) {
+      const u = await prisma.usuario.findUnique({ where: { id_usuario: req.user.id_usuario } });
+      idCliente = u?.id_cliente;
+    }
+    const existente = await prisma.centro.findUnique({ where: { id_centro: id } });
+    if (!existente) return res.status(404).json({ error: 'Centro no encontrado' });
+    if (idCliente && existente.id_cliente !== idCliente) {
+      return res.status(403).json({ error: 'Sin acceso a este centro' });
+    }
     const data = {};
     if (req.body.nombre_centro !== undefined) data.nombre_centro = req.body.nombre_centro;
     if (req.body.direccion !== undefined) data.direccion = req.body.direccion;
