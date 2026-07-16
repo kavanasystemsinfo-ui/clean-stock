@@ -126,37 +126,45 @@ async function main() {
     });
     console.log('  ✓ Supervisor creado (Zaira García)');
   }
-  // 5b. Operarios (empleados reales de la cuñada) — email normal, teléfono, nº empleado 100-500
-  const randEmp = () => String(100 + Math.floor(Math.random() * 401)); // 100-500
-  const operarios = [
-    { nombre: 'María López',     email: 'maria.lopez@gmail.com',    telefono: '600123001', centro: 'Diputación de Valencia' },
-    { nombre: 'José Pérez',     email: 'jperez75@hotmail.com',   telefono: '600123002', centro: 'Beneficencia' },
-    { nombre: 'Lucía Romero',    email: 'lucia.romero@gmail.com', telefono: '600123003', centro: 'Plaza de Toros' },
-    { nombre: 'Antonio Muñoz',   email: 'a.munoz@outlook.com',    telefono: '600123004', centro: 'Museo Bellas Artes' },
-    { nombre: 'Carmen Torres',   email: 'carmen.torres@gmail.com', telefono: '600123005', centro: 'Diputación de Valencia' },
-    { nombre: 'David Ferrer',     email: 'dferrer82@hotmail.com',  telefono: '600123006', centro: 'Beneficencia' },
-  ];
-  for (const op of operarios) {
-    let u = await prisma.usuario.findFirst({ where: { email: op.email } });
-    if (!u) {
-      u = await prisma.usuario.create({
-        data: {
-          nombre: op.nombre,
-          email: op.email,
-          username: op.email.split('@')[0],
-          password_hash: pw,
-          rol: 'limpiador',
-          id_cliente: idCliente,
-          telefono: op.telefono,
-          numero_empleado: randEmp(),
-        },
-      });
-      await prisma.asignacionPersonal.create({
-        data: { id_usuario: u.id_usuario, id_centro: centros[op.centro], fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-      });
-      console.log('  ✓ Empleado creado:', op.nombre, '→', op.centro);
+  // 5b. Empleados (5-10 por centro) — email normal, teléfono, nº empleado 100-500
+  const randEmp = () => 100 + Math.floor(Math.random() * 401); // 100-500
+  const nombres = ['María', 'José', 'Lucía', 'Antonio', 'Carmen', 'David', 'Ana', 'Carlos', 'Pedro', 'Laura', 'Miguel', 'Sara', 'Javier', 'Elena', 'Francisco', 'Marta', 'Manuel', 'Paula', 'Diego', 'Raquel', 'Álvaro', 'Nuria', 'Pablo', 'Cristina', 'Sergio', 'Beatriz', 'Rubén', 'Patricia', 'Ángel', 'Mónica'];
+  const apellidos = ['López', 'Pérez', 'Romero', 'Muñoz', 'Torres', 'Ferrer', 'García', 'Sánchez', 'Martín', 'Ruiz', 'Jiménez', 'Moreno', 'Álvarez', 'Díaz', 'Suárez', 'Vidal', 'Castro', 'Ortega', 'Ramos', 'Iglesias', 'Molina', 'Serrano', 'Navarro', 'Gil', 'Reyes', 'Cano', 'Cruz', 'Mendoza', 'Prieto', 'Marín'];
+  const dominios = ['gmail.com', 'hotmail.com', 'outlook.com'];
+  const centrosNombres = Object.keys(centros); // 4 centros
+  let telefonoSeq = 600123000;
+
+  // Genera 5-10 empleados por centro
+  for (const cn of centrosNombres) {
+    const n = 5 + Math.floor(Math.random() * 6); // 5..10 por centro
+    for (let i = 0; i < n; i++) {
+      const nombre = nombres[Math.floor(Math.random() * nombres.length)];
+      const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
+      const full = `${nombre} ${apellido}`;
+      const dom = dominios[Math.floor(Math.random() * dominios.length)];
+      const email = `${nombre.toLowerCase()}.${apellido.toLowerCase()}@${dom}`;
+      const telefono = String(++telefonoSeq);
+      let u = await prisma.usuario.findFirst({ where: { email } });
+      if (!u) {
+        u = await prisma.usuario.create({
+          data: {
+            nombre: full,
+            email,
+            username: `${nombre.toLowerCase()}.${apellido.toLowerCase()}`,
+            password_hash: pw,
+            rol: 'limpiador',
+            id_cliente: idCliente,
+            telefono,
+            numero_empleado: String(randEmp()),
+          },
+        });
+        await prisma.asignacionPersonal.create({
+          data: { id_usuario: u.id_usuario, id_centro: centros[cn], fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        });
+      }
     }
   }
+  console.log('  ✓ Empleados generados (5-10 por centro)');
 
   console.log('\n✅ Demo lista. Login encargada: supervisor.demo@cleanstock.com / demo1234');
   console.log('   Centros: Diputación, Beneficencia, Plaza de Toros, Museo Bellas Artes');
