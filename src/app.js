@@ -200,7 +200,11 @@ app.get('/api/v1/centros', auth, async (req, res) => {
     const centros = await prisma.centro.findMany({
       where: idCliente ? { id_cliente: idCliente } : {},
       orderBy: { nombre_centro: 'asc' },
-      include: { _count: { select: { asignaciones: true, inventarioCentros: true } } },
+      include: {
+        _count: { select: { asignaciones: true, inventarioCentros: true } },
+        asignaciones: { where: { fecha_fin: null }, include: { usuario: { select: { nombre: true, rol: true } } } },
+        inventarioCentros: { include: { producto: { select: { nombre_producto: true, unidad_medida: true, coste_unitario: true } } } },
+      },
     });
     res.json({ centros });
   } catch (e) { res.status(500).json({ error: e.message }); }

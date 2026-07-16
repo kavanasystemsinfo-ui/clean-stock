@@ -500,6 +500,56 @@ tr:hover td {
   color: var(--gray-600);
 }
 
+/* --- Detalle desplegable de centro (acordeón) --- */
+.detalle-fila td {
+  background: var(--gray-50);
+  padding: 0 !important;
+}
+.detalle-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  padding: 1.25rem 1.5rem;
+}
+.detalle-grid h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--gray-700);
+}
+.detalle-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.detalle-lista li {
+  font-size: 0.9rem;
+  color: var(--gray-800);
+}
+.detalle-rol {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-left: 0.4rem;
+  text-transform: capitalize;
+}
+.detalle-stock {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--gray-500);
+  margin-top: 0.1rem;
+}
+.detalle-vacio {
+  font-size: 0.85rem;
+  color: var(--gray-400);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .detalle-grid { grid-template-columns: 1fr; }
+}
+
 /* Loading state */
 .loading {
   display: flex;

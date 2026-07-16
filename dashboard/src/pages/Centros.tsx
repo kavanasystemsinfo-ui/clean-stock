@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { getCentros, createCentro, updateCentro, type Centro } from '../lib/api'
 
 export function Centros() {
@@ -63,6 +63,8 @@ export function Centros() {
     finally { setGuardando(false) }
   }
 
+  const [centroAbierto, setCentroAbierto] = useState<number | null>(null)
+
   if (loading) return <div className="loading"><div className="spinner" />Cargando centros...</div>
 
   return (
@@ -110,18 +112,69 @@ export function Centros() {
               {centros.length === 0 ? (
                 <tr><td colSpan={6} style={{ color: '#9ca3af' }}>No hay centros registrados</td></tr>
               ) : (
-                centros.map(c => (
-                  <tr key={(c as any).id_centro}>
-                    <td><strong>{(c as any).nombre_centro || '—'}</strong></td>
-                    <td>{c.direccion || '—'}</td>
-                    <td>{(c as any).presupuesto_mensual ? `${(c as any).presupuesto_mensual} €` : '—'}</td>
-                    <td>{(c as any)._count?.asignaciones ?? '—'}</td>
-                    <td>{(c as any)._count?.inventarioCentros ?? '—'}</td>
-                    <td>
-                      <button className="btn btn-sm btn-outline" onClick={() => abrirEditar(c)}>Editar</button>
-                    </td>
-                  </tr>
-                ))
+                centros.map(c => {
+                  const id = (c as any).id_centro;
+                  const abierto = centroAbierto === id;
+                  const emps = (c as any).asignaciones || [];
+                  const prods = (c as any).inventarioCentros || [];
+                  return (
+                    <Fragment key={id}>
+                      <tr
+                        onClick={() => setCentroAbierto(abierto ? null : id)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <td><strong>{(c as any).nombre_centro || '—'}</strong></td>
+                        <td>{c.direccion || '—'}</td>
+                        <td>{(c as any).presupuesto_mensual ? `${(c as any).presupuesto_mensual} €` : '—'}</td>
+                        <td>{(c as any)._count?.asignaciones ?? '—'}</td>
+                        <td>{(c as any)._count?.inventarioCentros ?? '—'}</td>
+                        <td>
+                          <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); abrirEditar(c); }}>Editar</button>
+                        </td>
+                      </tr>
+                      {abierto && (
+                        <tr className="detalle-fila">
+                          <td colSpan={6}>
+                            <div className="detalle-grid">
+                              <div>
+                                <h4>👷 Empleados ({emps.length})</h4>
+                                {emps.length === 0 ? (
+                                  <p className="detalle-vacio">Sin personal asignado</p>
+                                ) : (
+                                  <ul className="detalle-lista">
+                                    {emps.map((a: any, i: number) => (
+                                      <li key={i}>{a.usuario.nombre} <span className="detalle-rol">{a.usuario.rol}</span></li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                              <div>
+                                <h4>📦 Productos ({prods.length})</h4>
+                                {prods.length === 0 ? (
+                                  <p className="detalle-vacio">Sin inventario</p>
+                                ) : (
+                                  <ul className="detalle-lista">
+                                    {prods.map((inv: any, i: number) => {
+                                      const reg = inv.cantidad_actual;
+                                      const fis = inv.stock_fisico;
+                                      const merma = (fis !== null && reg > fis) ? reg - fis : null;
+                                      return (
+                                        <li key={i}>
+                                          {inv.producto.nombre_producto} ({inv.producto.unidad_medida})
+                                          <span className="detalle-stock">reg. {reg}{fis !== null ? ` · fís. ${fis}` : ''}{merma !== null ? ` · 🔴 -${merma}` : ''}</span>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
