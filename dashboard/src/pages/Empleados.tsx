@@ -44,7 +44,7 @@ export function Empleados() {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select className="form-select" value={filtroCentro} onChange={e => setFiltroCentro(e.target.value)} style={{ minWidth: 200 }}>
             <option value="">Todos los centros</option>
-            {centros.map((c: any) => <option key={c.id_centro} value={c.id_centro}>{c.nombre}</option>)}
+            {centros.map((c: any) => <option key={c.id_centro} value={c.id_centro}>{c.nombre_centro || c.nombre}</option>)}
           </select>
           <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Nuevo Empleado</button>
         </div>
