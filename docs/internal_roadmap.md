@@ -23,7 +23,7 @@
 | Seguridad (auditoría ECC) | ✅ Completada 2026-07-16 | 4 críticos + 8 altos + 14 medios cerrados |
 | Tests automatizados | ✅ 26 tests (Jest) | Incluye test de aislamiento multi-tenant |
 | Dashboard consumo + alerts (REST) | ✅ En producción | Sin tiempo real (consultas REST) |
-| Frontend PWA operario | ✅ En producción | Login + consumir producto |
+| Frontend PWA operario | ❌ **Descartado (rediseño 2026-07-16)** | El limpiador no usa app; el supervisor registra desde el dashboard web |
 | Docker Compose + nginx | ✅ En producción | 4 servicios en VPS Hetzner |
 | Informe de auditoría | ✅ `AUDITORIA_ESTADO.md` | En raíz del repo |
 
@@ -31,7 +31,7 @@
 
 | Módulo | Estado | Qué falta |
 |--------|--------|-----------|
-| Frontend operario (incidencias) | ⏳ Backend listo, frontend móvil pendiente | Pantalla de reporte en la PWA |
+| Frontend operario (incidencias) | ❌ **Descartado** | El supervisor reporta incidencias desde el dashboard; no hay app del operario |
 | Propuesta de compra (UI) | ⏳ Backend listo, botón en frontend pendiente | Botón "Generar" en Inventario |
 | Páginas sin enrutar | ⏳ Código creado, sin ruta | Notifications, Asignaciones, Alerts (los archivos `.tsx` existen) |
 

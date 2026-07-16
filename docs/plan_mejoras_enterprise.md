@@ -43,7 +43,7 @@ Permite alertar cuando se detecta material faltante (merma).
 
 ## Módulo C: Reporte de Incidencias en la Instalación ✅ BACKEND IMPLEMENTADO / ⏳ FRONTEND MÓVIL PENDIENTE
 
-Los operarios reportan averías (fontanería, electricidad, etc.) y los supervisores les dan seguimiento.
+Los **supervisores o personal de control** reportan averías (fontanería, electricidad, etc.) y les dan seguimiento desde el dashboard.
 
 1. **Base de Datos (Prisma)** ✅:
    - Modelo `Incidencia` con categorías: `limpieza`, `fontaneria`, `electricidad`, `cerrajeria`, `otros`
@@ -53,8 +53,9 @@ Los operarios reportan averías (fontanería, electricidad, etc.) y los supervis
    - `PUT /api/v1/incidencias/:id` — actualización de estado (pendiente→en_proceso→resuelta)
 3. **Frontend Supervisor** ✅:
    - Página `/incidents` con bandeja de seguimiento y cambio de estado
-4. **Frontend Móvil (Limpiador)** ⏳ **Pendiente**:
-   - Pendiente de añadir pantalla de reporte en la PWA móvil
+4. **Frontend (registro de consumo)** ✅ En el dashboard del supervisor:
+   - El supervisor registra el consumo y reporta incidencias desde el panel web (responsive).
+   - No hay app móvil del limpiador (rediseño 2026-07-16: el limpiador no usa ninguna app).
 
 ---
 
@@ -76,7 +77,7 @@ Genera una propuesta de pedido basada en el stock mínimo por centro.
 Se intentó implementar pero la página de Notificaciones no está enrutada en el dashboard.
 
 1. **Base de Datos (Prisma)** ✅ (solo tablas):
-   - `ReglaNotificacion` — configuración de alertas por centro/operario/producto
+   - `ReglaNotificacion` — configuración de alertas por centro/usuario/producto
    - `Notificacion` — historial de notificaciones
 2. **Endpoints Backend** ❌ **No implementados**:
    - No existe `GET /api/v1/notifications` ni `PUT /api/v1/notifications/:id/read`
