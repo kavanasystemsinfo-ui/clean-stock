@@ -505,6 +505,23 @@ tr:hover td {
   background: var(--gray-50);
   padding: 0 !important;
 }
+.centro-fila {
+  transition: background 0.12s ease;
+}
+.centro-fila:hover {
+  background: var(--gray-100);
+}
+.centro-flecha {
+  display: inline-block;
+  margin-right: 0.5rem;
+  color: var(--gray-400);
+  transition: transform 0.15s ease;
+  font-size: 0.8rem;
+}
+.centro-fila.abierto .centro-flecha {
+  transform: rotate(90deg);
+  color: var(--primary);
+}
 .detalle-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -520,25 +537,39 @@ tr:hover td {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 .detalle-lista li {
   font-size: 0.9rem;
   color: var(--gray-800);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+}
+.detalle-lista li strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--gray-900);
 }
 .detalle-rol {
-  font-size: 0.75rem;
-  color: var(--gray-500);
-  margin-left: 0.4rem;
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: var(--primary-light);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  margin-top: 0.2rem;
   text-transform: capitalize;
 }
 .detalle-extra {
   display: block;
   font-size: 0.78rem;
   color: var(--gray-500);
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
 }
 .detalle-stock {
   display: block;

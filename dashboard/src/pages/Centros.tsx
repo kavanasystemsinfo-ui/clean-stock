@@ -120,10 +120,14 @@ export function Centros() {
                   return (
                     <Fragment key={id}>
                       <tr
+                        className={`centro-fila${abierto ? ' abierto' : ''}`}
                         onClick={() => setCentroAbierto(abierto ? null : id)}
                         style={{ cursor: 'pointer' }}
                       >
-                        <td><strong>{(c as any).nombre_centro || '—'}</strong></td>
+                        <td>
+                          <span className="centro-flecha">{abierto ? '▾' : '▸'}</span>
+                          <strong>{(c as any).nombre_centro || '—'}</strong>
+                        </td>
                         <td>{c.direccion || '—'}</td>
                         <td>{(c as any).presupuesto_mensual ? `${(c as any).presupuesto_mensual} €` : '—'}</td>
                         <td>{(c as any)._count?.asignaciones ?? '—'}</td>

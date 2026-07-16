@@ -127,40 +127,54 @@ async function main() {
     console.log('  ✓ Supervisor creado (Zaira García)');
   }
   // 5b. Empleados (5-10 por centro) — email normal, teléfono, nº empleado 100-500
-  const randEmp = () => 100 + Math.floor(Math.random() * 401); // 100-500
   const nombres = ['María', 'José', 'Lucía', 'Antonio', 'Carmen', 'David', 'Ana', 'Carlos', 'Pedro', 'Laura', 'Miguel', 'Sara', 'Javier', 'Elena', 'Francisco', 'Marta', 'Manuel', 'Paula', 'Diego', 'Raquel', 'Álvaro', 'Nuria', 'Pablo', 'Cristina', 'Sergio', 'Beatriz', 'Rubén', 'Patricia', 'Ángel', 'Mónica'];
   const apellidos = ['López', 'Pérez', 'Romero', 'Muñoz', 'Torres', 'Ferrer', 'García', 'Sánchez', 'Martín', 'Ruiz', 'Jiménez', 'Moreno', 'Álvarez', 'Díaz', 'Suárez', 'Vidal', 'Castro', 'Ortega', 'Ramos', 'Iglesias', 'Molina', 'Serrano', 'Navarro', 'Gil', 'Reyes', 'Cano', 'Cruz', 'Mendoza', 'Prieto', 'Marín'];
   const dominios = ['gmail.com', 'hotmail.com', 'outlook.com'];
   const centrosNombres = Object.keys(centros); // 4 centros
   let telefonoSeq = 600123000;
+  let empSeq = 500; // base para nº empleado y username único
 
-  // Genera 5-10 empleados por centro
+  // Cuenta existentes por centro para no duplicar al reejecutar el seed
+  const existentesPorCentro = {};
   for (const cn of centrosNombres) {
-    const n = 5 + Math.floor(Math.random() * 6); // 5..10 por centro
-    for (let i = 0; i < n; i++) {
+    const c = await prisma.centro.findUnique({ where: { id_centro: centros[cn] }, include: { asignaciones: { where: { fecha_fin: null }, select: { id_usuario: true } } } });
+    existentesPorCentro[cn] = c?.asignaciones?.length || 0;
+  }
+
+  for (const cn of centrosNombres) {
+    const quiere = 5 + Math.floor(Math.random() * 6); // 5..10 objetivo
+    const falta = Math.max(0, quiere - (existentesPorCentro[cn] || 0));
+    for (let i = 0; i < falta; i++) {
       const nombre = nombres[Math.floor(Math.random() * nombres.length)];
       const apellido = apellidos[Math.floor(Math.random() * apellidos.length)];
       const full = `${nombre} ${apellido}`;
       const dom = dominios[Math.floor(Math.random() * dominios.length)];
-      const email = `${nombre.toLowerCase()}.${apellido.toLowerCase()}@${dom}`;
+      const ne = ++empSeq; // nº empleado y sufijo único
+      const email = `${nombre.toLowerCase()}.${apellido.toLowerCase()}${ne}@${dom}`;
+      const username = `${nombre.toLowerCase()}.${apellido.toLowerCase()}.${ne}`;
       const telefono = String(++telefonoSeq);
-      let u = await prisma.usuario.findFirst({ where: { email } });
-      if (!u) {
-        u = await prisma.usuario.create({
-          data: {
+      try {
+        const u = await prisma.usuario.upsert({
+          where: { email },
+          update: {},
+          create: {
             nombre: full,
             email,
-            username: `${nombre.toLowerCase()}.${apellido.toLowerCase()}`,
+            username,
             password_hash: pw,
             rol: 'limpiador',
             id_cliente: idCliente,
             telefono,
-            numero_empleado: String(randEmp()),
+            numero_empleado: String(ne),
           },
         });
-        await prisma.asignacionPersonal.create({
-          data: { id_usuario: u.id_usuario, id_centro: centros[cn], fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-        });
+        // Asigna al centro si no tiene asignación activa
+        const ya = await prisma.asignacionPersonal.findFirst({ where: { id_usuario: u.id_usuario, id_centro: centros[cn], fecha_fin: null } });
+        if (!ya) {
+          await prisma.asignacionPersonal.create({ data: { id_usuario: u.id_usuario, id_centro: centros[cn], fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } });
+        }
+      } catch (err) {
+        console.warn('  ⚠️ No se pudo crear', full, '→', err.message.split('\n')[0]);
       }
     }
   }
