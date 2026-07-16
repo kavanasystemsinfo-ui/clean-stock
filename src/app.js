@@ -202,7 +202,7 @@ app.get('/api/v1/centros', auth, async (req, res) => {
       orderBy: { nombre_centro: 'asc' },
       include: {
         _count: { select: { asignaciones: true, inventarioCentros: true } },
-        asignaciones: { where: { fecha_fin: null }, include: { usuario: { select: { nombre: true, rol: true } } } },
+        asignaciones: { where: { fecha_fin: null }, include: { usuario: { select: { nombre: true, rol: true, telefono: true, numero_empleado: true, email: true } } } },
         inventarioCentros: { include: { producto: { select: { nombre_producto: true, unidad_medida: true, coste_unitario: true } } } },
       },
     });

@@ -534,6 +534,12 @@ tr:hover td {
   margin-left: 0.4rem;
   text-transform: capitalize;
 }
+.detalle-extra {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--gray-500);
+  margin-top: 0.1rem;
+}
 .detalle-stock {
   display: block;
   font-size: 0.8rem;

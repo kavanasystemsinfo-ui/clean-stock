@@ -126,23 +126,35 @@ async function main() {
     });
     console.log('  ✓ Supervisor creado (Zaira García)');
   }
+  // 5b. Operarios (empleados reales de la cuñada) — email normal, teléfono, nº empleado 100-500
+  const randEmp = () => String(100 + Math.floor(Math.random() * 401)); // 100-500
   const operarios = [
-    { nombre: 'María L.', centro: 'Diputación de Valencia' },
-    { nombre: 'José P.', centro: 'Beneficencia' },
-    { nombre: 'Lucía R.', centro: 'Plaza de Toros' },
-    { nombre: 'Antonio M.', centro: 'Museo Bellas Artes' },
+    { nombre: 'María López',     email: 'maria.lopez@gmail.com',    telefono: '600123001', centro: 'Diputación de Valencia' },
+    { nombre: 'José Pérez',     email: 'jperez75@hotmail.com',   telefono: '600123002', centro: 'Beneficencia' },
+    { nombre: 'Lucía Romero',    email: 'lucia.romero@gmail.com', telefono: '600123003', centro: 'Plaza de Toros' },
+    { nombre: 'Antonio Muñoz',   email: 'a.munoz@outlook.com',    telefono: '600123004', centro: 'Museo Bellas Artes' },
+    { nombre: 'Carmen Torres',   email: 'carmen.torres@gmail.com', telefono: '600123005', centro: 'Diputación de Valencia' },
+    { nombre: 'David Ferrer',     email: 'dferrer82@hotmail.com',  telefono: '600123006', centro: 'Beneficencia' },
   ];
   for (const op of operarios) {
-    const email = op.nombre.toLowerCase().replace(/[^a-z.]/g, '') + '@cleanstock.com';
-    let u = await prisma.usuario.findFirst({ where: { email } });
+    let u = await prisma.usuario.findFirst({ where: { email: op.email } });
     if (!u) {
       u = await prisma.usuario.create({
-        data: { nombre: op.nombre, email, username: op.nombre.split(' ')[0].toLowerCase(), password_hash: pw, rol: 'limpiador', id_cliente: idCliente },
+        data: {
+          nombre: op.nombre,
+          email: op.email,
+          username: op.email.split('@')[0],
+          password_hash: pw,
+          rol: 'limpiador',
+          id_cliente: idCliente,
+          telefono: op.telefono,
+          numero_empleado: randEmp(),
+        },
       });
       await prisma.asignacionPersonal.create({
         data: { id_usuario: u.id_usuario, id_centro: centros[op.centro], fecha_inicio: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
       });
-      console.log('  ✓ Operario creado:', op.nombre, '→', op.centro);
+      console.log('  ✓ Empleado creado:', op.nombre, '→', op.centro);
     }
   }
 

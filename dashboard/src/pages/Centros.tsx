@@ -143,7 +143,13 @@ export function Centros() {
                                 ) : (
                                   <ul className="detalle-lista">
                                     {emps.map((a: any, i: number) => (
-                                      <li key={i}>{a.usuario.nombre} <span className="detalle-rol">{a.usuario.rol}</span></li>
+                                      <li key={i}>
+                                        {a.usuario.nombre}
+                                        <span className="detalle-rol">{a.usuario.rol}</span>
+                                        {a.usuario.numero_empleado && <span className="detalle-extra"> · Nº {a.usuario.numero_empleado}</span>}
+                                        {a.usuario.telefono && <span className="detalle-extra"> · 📞 {a.usuario.telefono}</span>}
+                                        {a.usuario.email && <span className="detalle-extra"> · ✉️ {a.usuario.email}</span>}
+                                      </li>
                                     ))}
                                   </ul>
                                 )}
