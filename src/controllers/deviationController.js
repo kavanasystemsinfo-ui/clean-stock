@@ -1,19 +1,21 @@
-// Kavana CleanStock — Deviation Controller
-// Calcula la desviación de consumo real vs. teórico por centro/producto.
+// Kavana CleanStock — Deviation Controller (modelo de MERMAS de inventario)
+// Compara stock REGISTRADO (cantidad_actual) vs stock FÍSICO (conteo de la encargada).
+//   desviacion = cantidad_actual - stock_fisico
+//     > 0  → Falta material (se llevaron / perdieron)        → estado "falta"
+//     < 0  → Sobra material (error a favor, no crítico)      → estado "sobra"
+//     null → Pendiente de contar                             → estado "pendiente"
 // Contrato de salida (ver dashboard/src/lib/api.ts -> DeviationsData):
-//   { mes, total_desviaciones, desviaciones: [{ centro, producto, consumo_teorico,
-//     consumo_real, desviacion, porcentaje_consumido, coste_desviacion, estado }] }
+//   { mes, total_desviaciones, desviaciones: [{ centro, producto, cantidad_actual,
+//     stock_fisico, desviacion, porcentaje_desviacion, coste_desviacion, estado }] }
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-// Umbral (en unidades) por debajo del cual la desviación se considera "normal".
-const UMBRAL_NORMAL = 1;
-
-function mesAnteriorISO(fecha = new Date()) {
-  const y = fecha.getUTCFullYear();
-  const m = String(fecha.getUTCMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
+function calcularEstado(desviacion) {
+  if (desviacion === null || desviacion === undefined) return 'pendiente';
+  if (desviacion > 0) return 'falta';
+  if (desviacion < 0) return 'sobra';
+  return 'normal';
 }
 
 async function getDeviations(req, res) {
@@ -30,66 +32,100 @@ async function getDeviations(req, res) {
     if (!idCliente) return res.status(403).json({ error: 'Sin empresa asociada' });
 
     const filtroCentro = req.query.centro ? Number(req.query.centro) : null;
-    const mes = typeof req.query.mes === 'string' && /^\d{4}-\d{2}$/.test(req.query.mes)
-      ? req.query.mes
-      : mesAnteriorISO();
-    const [y, m] = mes.split('-').map(Number);
-    const desde = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-    const hasta = new Date(Date.UTC(y, m, 1, 0, 0, 0));
 
-    // Teóricos del cliente (opcionalmente filtrado por centro)
-    const whereTeorico = { centro: { id_cliente: idCliente } };
-    if (filtroCentro) whereTeorico.id_centro = filtroCentro;
-    const teoricos = await prisma.consumoTeorico.findMany({
-      where: whereTeorico,
+    const where = { centro: { id_cliente: idCliente } };
+    if (filtroCentro) where.id_centro = filtroCentro;
+
+    const inventarios = await prisma.inventarioCentro.findMany({
+      where,
       include: { centro: true, producto: true },
     });
 
-    const desviaciones = [];
-    for (const t of teoricos) {
-      const movs = await prisma.registroMovimiento.findMany({
-        where: {
-          id_centro: t.id_centro,
-          id_producto: t.id_producto,
-          cantidad: { lt: 0 },
-          fecha_hora: { gte: desde, lt: hasta },
-        },
+    const desviaciones = inventarios
+      .map((inv) => {
+        const registrado = inv.cantidad_actual;
+        const fisico = inv.stock_fisico;
+        const desviacion = fisico === null ? null : registrado - fisico;
+        const porcentaje = fisico === null
+          ? null
+          : (registrado === 0 ? 0 : Math.round(((registrado - fisico) / registrado) * 100));
+        const coste = desviacion === null ? 0 : Math.max(0, desviacion) * (inv.producto.coste_unitario || 0);
+        return {
+          centro: { id_centro: inv.centro.id_centro, nombre_centro: inv.centro.nombre_centro },
+          producto: {
+            id_producto: inv.producto.id_producto,
+            nombre_producto: inv.producto.nombre_producto,
+            unidad_medida: inv.producto.unidad_medida,
+            coste_unitario: inv.producto.coste_unitario,
+          },
+          cantidad_actual: registrado,
+          stock_fisico: fisico,
+          desviacion,
+          porcentaje_desviacion: porcentaje,
+          coste_desviacion: Math.round(coste * 100) / 100,
+          estado: calcularEstado(desviacion),
+        };
+      })
+      .filter((d) => d.estado !== 'normal') // Solo mostramos lo relevante (falta/sobra/pendiente)
+      .sort((a, b) => {
+        // Críticos (falta) primero, luego pendiente, luego sobra
+        const orden = { falta: 0, pendiente: 1, sobra: 2 };
+        return orden[a.estado] - orden[b.estado];
       });
-      const consumoReal = movs.reduce((s, mv) => s + Math.abs(Number(mv.cantidad)), 0);
-      const teorico = Number(t.cantidad_teorica) || 0;
-      const desviacion = Math.round((consumoReal - teorico) * 100) / 100;
-      const porcentaje = teorico > 0 ? Math.round((consumoReal / teorico) * 100) : (consumoReal > 0 ? 999 : 0);
-      const costeUnit = Number(t.producto.coste_unitario) || 0;
-      const costeDesviacion = Math.round(desviacion * costeUnit * 100) / 100;
-      let estado = 'normal';
-      if (desviacion > UMBRAL_NORMAL) estado = 'exceso';
-      else if (desviacion < -UMBRAL_NORMAL) estado = 'infraconsumo';
 
-      desviaciones.push({
-        centro: { id_centro: t.id_centro, nombre_centro: t.centro.nombre_centro },
-        producto: {
-          id_producto: t.id_producto,
-          nombre_producto: t.producto.nombre_producto,
-          unidad_medida: t.producto.unidad_medida,
-          coste_unitario: costeUnit,
-        },
-        consumo_teorico: teorico,
-        consumo_real: consumoReal,
-        desviacion,
-        porcentaje_consumido: porcentaje,
-        coste_desviacion: costeDesviacion,
-        estado,
-      });
-    }
+    const total = desviaciones.filter((d) => d.estado === 'falta').length;
 
-    // Ordenar por desviación absoluta descendente (los problemas primero)
-    desviaciones.sort((a, b) => Math.abs(b.desviacion) - Math.abs(a.desviacion));
-    const totalDesviaciones = desviaciones.filter((d) => d.estado !== 'normal').length;
-
-    res.json({ mes, total_desviaciones: totalDesviaciones, desviaciones });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.json({
+      mes: new Date().toISOString().slice(0, 7),
+      total_desviaciones: total,
+      desviaciones,
+    });
+  } catch (err) {
+    console.error('[deviationController]', err);
+    res.status(500).json({ error: 'Error al calcular desviaciones' });
   }
 }
 
-module.exports = { getDeviations };
+// Guardar conteo físico de un producto en un centro
+async function guardarConteo(req, res) {
+  try {
+    const usuario = req.user;
+    if (!usuario) return res.status(401).json({ error: 'No autenticado' });
+    let idCliente = usuario.id_cliente;
+    if (!idCliente && usuario.id_usuario) {
+      const u = await prisma.usuario.findUnique({ where: { id_usuario: usuario.id_usuario } });
+      idCliente = u?.id_cliente;
+    }
+    if (!idCliente) return res.status(403).json({ error: 'Sin empresa asociada' });
+
+    const idCentro = Number(req.params.id_centro);
+    const idProducto = Number(req.params.id_producto);
+    const stockFisico = Number(req.body.stock_fisico);
+
+    if (!Number.isFinite(stockFisico) || stockFisico < 0) {
+      return res.status(400).json({ error: 'Stock físico inválido' });
+    }
+
+    // Verificar que el centro pertenece al cliente
+    const centro = await prisma.centro.findFirst({ where: { id_centro: idCentro, id_cliente: idCliente } });
+    if (!centro) return res.status(404).json({ error: 'Centro no encontrado' });
+
+    const inv = await prisma.inventarioCentro.upsert({
+      where: { id_centro_id_producto: { id_centro: idCentro, id_producto: idProducto } },
+      update: { stock_fisico: stockFisico, fecha_actualizacion: new Date() },
+      create: {
+        id_centro: idCentro,
+        id_producto: idProducto,
+        cantidad_actual: stockFisico,
+        stock_fisico: stockFisico,
+      },
+    });
+
+    res.json({ ok: true, inventario: inv });
+  } catch (err) {
+    console.error('[deviationController:guardarConteo]', err);
+    res.status(500).json({ error: 'Error al guardar conteo' });
+  }
+}
+
+module.exports = { getDeviations, guardarConteo };

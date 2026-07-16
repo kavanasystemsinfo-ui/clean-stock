@@ -1,6 +1,6 @@
 // Seed de DEMOSTRACIÓN — Caso real de la cuñada (encargada limpieza Valencia)
-// Centros: Diputación, Beneficencia, Plaza de Toros, Museo Bellas Artes
-// Producto estrella: Papel (consumo anómalo en Plaza de Toros)
+// Modelo: MERMAS de inventario (stock registrado vs stock físico contado)
+//   Centro estrella: Plaza de Toros — papel registrado 50, físico 30 → faltan 20 rollos
 //
 // Uso: node prisma/seed-demo-cunada.js
 // Carga datos de ejemplo en la BD que ya corre (definida por DATABASE_URL en .env).
@@ -15,9 +15,9 @@ const prisma = new PrismaClient();
 const EMPRESA_DEMO = 'Limpiezas Valencia Centro, S.L.';
 
 async function main() {
-  console.log('→ Seed demo CleanStock (caso cuñada)...');
+  console.log('→ Seed demo CleanStock (mermas de inventario — caso cuñada)...');
 
-  // 1. Cliente demo (idempotente por nombre)
+  // 1. Cliente demo (idempotente por nombre) — marcado es_demo para borrado limpio
   let cliente = await prisma.cliente.findFirst({ where: { nombre_empresa: EMPRESA_DEMO } });
   if (!cliente) {
     cliente = await prisma.cliente.create({
@@ -29,10 +29,12 @@ async function main() {
         estado: 'trial',
         trial_fin: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         notas: 'Cliente piloto demo — caso real centros descentralizados Valencia',
+        es_demo: true,
       },
     });
     console.log('  ✓ Cliente demo creado:', cliente.id_cliente);
   } else {
+    await prisma.cliente.update({ where: { id_cliente: cliente.id_cliente }, data: { es_demo: true } });
     console.log('  • Cliente demo ya existe:', cliente.id_cliente);
   }
 
@@ -81,30 +83,37 @@ async function main() {
     productos[p.nombre] = prod.id_producto;
   }
 
-  // 4. Inventario actual por centro (stock presente)
-  for (const [nombreCentro, idCentro] of Object.entries(centros)) {
-    for (const [nombreProd, idProd] of Object.entries(productos)) {
-      const existe = await prisma.inventarioCentro.findUnique({ where: { id_centro_id_producto: { id_centro: idCentro, id_producto: idProd } } });
-      if (!existe) {
-        await prisma.inventarioCentro.create({
-          data: { id_centro: idCentro, id_producto: idProd, cantidad_actual: 20, stock_minimo: 5 },
-        });
-      }
-    }
+  // 4. Inventario: stock REGISTRADO (cantidad_actual) vs stock FÍSICO (stock_fisico)
+  //    Caso cuñada: Plaza de Toros papel registrado 50, físico 30 → faltan 20.
+  //    Estructura: [centro, producto, registrado, fisico|null]
+  const inventario = [
+    // Diputación — todo cuadra (contado = registrado)
+    ['Diputación de Valencia', 'Papel higiénico (rollo)', 40, 40],
+    ['Diputación de Valencia', 'Lejía', 25, 25],
+    ['Diputación de Valencia', 'Guantes de limpieza', 60, 58], // -2 (leve)
+    // Beneficencia — sin contar aún (fisico null)
+    ['Beneficencia', 'Papel higiénico (rollo)', 35, null],
+    ['Beneficencia', 'Bolsas de basura', 20, null],
+    // Plaza de Toros — ANÓMALO: registrado 50, físico 30 → faltan 20
+    ['Plaza de Toros', 'Papel higiénico (rollo)', 50, 30],
+    ['Plaza de Toros', 'Lejía', 18, 18],
+    ['Plaza de Toros', 'Papel industrial (rollo)', 22, 22],
+    // Museo Bellas Artes — sobra un poco (fisico > registrado, no crítico)
+    ['Museo Bellas Artes', 'Papel higiénico (rollo)', 30, 33],
+    ['Museo Bellas Artes', 'Guantes de limpieza', 45, 45],
+  ];
+  for (const [nombreCentro, nombreProd, registrado, fisico] of inventario) {
+    const idCentro = centros[nombreCentro];
+    const idProd = productos[nombreProd];
+    await prisma.inventarioCentro.upsert({
+      where: { id_centro_id_producto: { id_centro: idCentro, id_producto: idProd } },
+      update: { cantidad_actual: registrado, stock_fisico: fisico, fecha_actualizacion: new Date() },
+      create: { id_centro: idCentro, id_producto: idProd, cantidad_actual: registrado, stock_fisico: fisico, stock_minimo: 5 },
+    });
   }
-  console.log('  ✓ Inventario inicializado');
+  console.log('  ✓ Inventario con conteo físico inicializado');
 
-  // 5. Consumo teóico: papel 10 rollos/mes por centro
-  for (const [nombreCentro, idCentro] of Object.entries(centros)) {
-    const idPapel = productos['Papel higiénico (rollo)'];
-    const existe = await prisma.consumoTeorico.findUnique({ where: { id_centro_id_producto: { id_centro: idCentro, id_producto: idPapel } } });
-    if (!existe) {
-      await prisma.consumoTeorico.create({ data: { id_centro: idCentro, id_producto: idPapel, cantidad_teorica: 10 } });
-    }
-  }
-  console.log('  ✓ Consumo teórico de papel (10/mes) definido');
-
-  // 6. Usuarios (supervisor + operarios para trazabilidad "quién cogió qué")
+  // 5. Usuarios (supervisor + operarios)
   const pw = await bcrypt.hash('demo1234', 10);
   let supervisor = await prisma.usuario.findFirst({ where: { email: 'supervisor.demo@cleanstock.com' } });
   if (!supervisor) {
@@ -119,7 +128,6 @@ async function main() {
     { nombre: 'Lucía R.', centro: 'Plaza de Toros' },
     { nombre: 'Antonio M.', centro: 'Museo Bellas Artes' },
   ];
-  const opPorCentro = {};
   for (const op of operarios) {
     const email = op.nombre.toLowerCase().replace(/[^a-z.]/g, '') + '@cleanstock.com';
     let u = await prisma.usuario.findFirst({ where: { email } });
@@ -132,55 +140,12 @@ async function main() {
       });
       console.log('  ✓ Operario creado:', op.nombre, '→', op.centro);
     }
-    opPorCentro[op.centro] = u.id_usuario;
-  }
-
-  // 7. Movimientos de consumo (trazabilidad) — PLAZA DE TOROS ANÓMALO
-  // Consumo del mes actual. Plaza de Toros: 35 rollos (3.5x teórico 10).
-  // Resto: dentro de lo normal.
-  const ahora = Date.now();
-  const diasAtras = (d) => new Date(ahora - d * 24 * 60 * 60 * 1000);
-  const consumos = [
-    { centro: 'Diputación de Valencia', prod: 'Papel higiénico (rollo)', qty: 12, op: 'María L.', dia: 2 },
-    { centro: 'Beneficencia', prod: 'Papel higiénico (rollo)', qty: 9, op: 'José P.', dia: 3 },
-    { centro: 'Plaza de Toros', prod: 'Papel higiénico (rollo)', qty: 35, op: 'Lucía R.', dia: 1 }, // ANÓMALO
-    { centro: 'Museo Bellas Artes', prod: 'Papel higiénico (rollo)', qty: 11, op: 'Antonio M.', dia: 4 },
-    { centro: 'Plaza de Toros', prod: 'Lejía', qty: 6, op: 'Lucía R.', dia: 5 },
-    { centro: 'Diputación de Valencia', prod: 'Guantes de limpieza', qty: 14, op: 'María L.', dia: 6 },
-  ];
-  for (const m of consumos) {
-    const idCentro = centros[m.centro];
-    const idProd = productos[m.prod];
-    const idOp = opPorCentro[m.centro];
-    // Evita duplicar si ya hay movimiento similar este mes (idempotencia suave)
-    const ya = await prisma.registroMovimiento.findFirst({
-      where: { id_centro: idCentro, id_producto: idProd, id_usuario: idOp, fecha_hora: { gte: new Date(ahora - 10 * 24 * 60 * 60 * 1000) } },
-    });
-    if (!ya) {
-      await prisma.registroMovimiento.create({
-        data: { id_usuario: idOp, id_centro: idCentro, id_producto: idProd, cantidad: -m.qty, fecha_hora: diasAtras(m.dia) },
-      });
-      // Decrementa inventario
-      await prisma.inventarioCentro.update({
-        where: { id_centro_id_producto: { id_centro: idCentro, id_producto: idProd } },
-        data: { cantidad_actual: { decrement: m.qty }, fecha_actualizacion: new Date() },
-      });
-    }
-  }
-  console.log('  ✓ Movimientos de consumo registrados (Plaza de Toros anómalo: 35 rollos)');
-
-  // 8. Regla de notificación: alertar a la encargada si consumo de papel en cualquier centro
-  const reglaExiste = await prisma.reglaNotificacion.findFirst({ where: { id_supervisor: supervisor.id_usuario, id_producto: productos['Papel higiénico (rollo)'] } });
-  if (!reglaExiste) {
-    await prisma.reglaNotificacion.create({
-      data: { id_supervisor: supervisor.id_usuario, id_producto: productos['Papel higiénico (rollo)'], activa: true },
-    });
-    console.log('  ✓ Regla de alerta de papel creada');
   }
 
   console.log('\n✅ Demo lista. Login encargada: supervisor.demo@cleanstock.com / demo1234');
   console.log('   Centros: Diputación, Beneficencia, Plaza de Toros, Museo Bellas Artes');
-  console.log('   Alerta esperada: Plaza de Toros consumió 35 rollos (teórico 10/mes) → desviación 250%');
+  console.log('   Merma esperada: Plaza de Toros papel registrado 50 / físico 30 → FALTAN 20 rollos');
+  console.log('   Beneficencia: pendiente de contar (sin stock_fisico)');
 }
 
 main()
