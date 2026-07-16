@@ -115,8 +115,8 @@ export function Centros() {
                     <td><strong>{(c as any).nombre_centro || '—'}</strong></td>
                     <td>{c.direccion || '—'}</td>
                     <td>{(c as any).presupuesto_mensual ? `${(c as any).presupuesto_mensual} €` : '—'}</td>
-                    <td>{(c as any)._count?.usuarios ?? '—'}</td>
-                    <td>{(c as any)._count?.inventario_centros ?? '—'}</td>
+                    <td>{(c as any)._count?.asignaciones ?? '—'}</td>
+                    <td>{(c as any)._count?.inventarioCentros ?? '—'}</td>
                     <td>
                       <button className="btn btn-sm btn-outline" onClick={() => abrirEditar(c)}>Editar</button>
                     </td>
