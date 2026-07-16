@@ -228,15 +228,36 @@ app.put('/api/v1/centros/:id', auth, supervisorOnly, async (req, res) => {
 // ----- EMPLEADOS -----
 app.get('/api/v1/empleados', auth, supervisorOnly, async (req, res) => {
   try {
-    const emps = await prisma.usuario.findMany({ where: { rol: 'limpiador' }, include: { asignaciones: { include: { centro: true }, where: { fecha_fin: null } } }, orderBy: { nombre: 'asc' } });
+    const usuario = req.user;
+    let idCliente = usuario?.id_cliente;
+    if (!idCliente && usuario?.id_usuario) {
+      const u = await prisma.usuario.findUnique({ where: { id_usuario: usuario.id_usuario } });
+      idCliente = u?.id_cliente;
+    }
+    const emps = await prisma.usuario.findMany({
+      where: { rol: 'limpiador', id_cliente: idCliente ?? undefined },
+      include: { asignaciones: { include: { centro: true }, where: { fecha_fin: null } } },
+      orderBy: { nombre: 'asc' },
+    });
     res.json({ empleados: emps });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/v1/empleados', auth, supervisorOnly, async (req, res) => {
   try {
     const { nombre, email, password, numero_empleado, id_centro } = req.body;
+    if (!nombre || !email) return res.status(400).json({ error: 'Nombre y email obligatorios' });
     const hash = await bcrypt.hash(password || 'cleanstock', 12);
-    const u = await prisma.usuario.create({ data: { nombre, email, password_hash: hash, numero_empleado, id_centro, rol: 'limpiador' } });
+    let idCliente = req.user?.id_cliente;
+    if (!idCliente && req.user?.id_usuario) {
+      const u = await prisma.usuario.findUnique({ where: { id_usuario: req.user.id_usuario } });
+      idCliente = u?.id_cliente;
+    }
+    const u = await prisma.usuario.create({
+      data: { nombre, email, password_hash: hash, numero_empleado, id_cliente: idCliente, rol: 'limpiador' },
+    });
+    if (id_centro) {
+      await prisma.asignacionPersonal.create({ data: { id_usuario: u.id_usuario, id_centro, fecha_inicio: new Date() } });
+    }
     res.json({ empleado: u });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

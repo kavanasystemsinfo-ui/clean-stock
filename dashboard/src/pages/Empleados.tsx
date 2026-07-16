@@ -99,8 +99,8 @@ export function Empleados() {
                     <td><strong>{e.nombre} {e.apellidos || ''}</strong></td>
                     <td>{e.email}</td>
                     <td>{e.numero_empleado || '—'}</td>
-                    <td>{(e as any).centro?.nombre_centro || '—'}</td>
-                    <td><span className="badge badge-info">{e.estado}</span></td>
+                    <td>{(e as any).asignaciones?.[0]?.centro?.nombre_centro || '—'}</td>
+                    <td><span className={`badge ${e.estado === 'activo' ? 'badge-success' : 'badge-secondary'}`}>{e.estado}</span></td>
                   </tr>
                 ))
               )}
