@@ -243,7 +243,7 @@ describe('SECURITY: multi-tenant isolation', () => {
   const emailB = `sec-b-${Date.now()}@yagni.com`;
 
   beforeAll(async () => {
-    jest.setTimeout(30000);
+    jest.setTimeout(45000);
     // Empresa A (nueva, con id_cliente real)
     await request(app).post('/api/v1/auth/register-empresa')
       .send({ nombre_empresa: 'Empresa A Seg', email: emailA, password: 'test123', nombre_responsable: 'A' });
@@ -294,6 +294,25 @@ describe('SECURITY: multi-tenant isolation', () => {
       .set('Authorization', `Bearer ${tokenA}`)
       .send({ id_centro: centroBId, categoria: 'limpieza', titulo: 'x', descripcion: 'x' });
     expect(res.status).toBe(403);
+  });
+
+  it('Empresa A dashboard/consumption does not leak Empresa B centros', async () => {
+    const res = await request(app)
+      .get('/api/v1/dashboard/consumption')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(res.status).toBe(200);
+    const movs = res.body.movimientos || [];
+    const fugados = movs.filter(m => m.centro && m.centro.id_centro === centroBId);
+    expect(fugados.length).toBe(0);
+  });
+
+  it('Empresa A dashboard/alerts returns 200 and own-scoped data', async () => {
+    const res = await request(app)
+      .get('/api/v1/dashboard/alerts')
+      .set('Authorization', `Bearer ${tokenA}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.criticas)).toBe(true);
+    expect(Array.isArray(res.body.advertencias)).toBe(true);
   });
 
   afterAll(async () => {

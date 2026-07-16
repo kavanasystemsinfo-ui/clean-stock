@@ -82,8 +82,8 @@ app.get('/api/v1/dashboard', auth, async (req, res) => {
 // Dashboard — Consumption data (frontend)
 app.get('/api/v1/dashboard/consumption', auth, async (req, res) => {
   try {
-    const { centro, producto, desde, hasta } = req.query;
-    // Return basic consumption data
+    const idCliente = req.user.id_cliente;
+    const filtro = idCliente ? ` AND c.id_cliente = ${Number(idCliente)}` : '';
     const movs = await prisma.$queryRawUnsafe(`
       SELECT rm.*, p.nombre_producto, p.unidad_medida, p.coste_unitario,
              c.nombre_centro, u.nombre as usuario_nombre
@@ -91,7 +91,7 @@ app.get('/api/v1/dashboard/consumption', auth, async (req, res) => {
       JOIN productos p ON rm.id_producto = p.id_producto
       JOIN centros c ON rm.id_centro = c.id_centro
       JOIN usuarios u ON rm.id_usuario = u.id_usuario
-      WHERE rm.cantidad < 0
+      WHERE rm.cantidad < 0${filtro}
       ORDER BY rm.fecha_hora DESC LIMIT 50
     `);
     const total = movs.reduce((s, m) => s + Math.abs(Number(m.cantidad)), 0);
@@ -111,18 +111,20 @@ app.get('/api/v1/dashboard/consumption', auth, async (req, res) => {
         usuario: { nombre: m.usuario_nombre }
       }))
     });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno' }); }
 });
 
 // Dashboard — Alerts (frontend)
 app.get('/api/v1/dashboard/alerts', auth, async (req, res) => {
   try {
+    const idCliente = req.user.id_cliente;
+    const filtro = idCliente ? ` AND c.id_cliente = ${Number(idCliente)}` : '';
     const criticas = await prisma.$queryRawUnsafe(`
       SELECT ic.*, p.nombre_producto, c.nombre_centro
       FROM inventario_centros ic
       JOIN productos p ON ic.id_producto = p.id_producto
       JOIN centros c ON ic.id_centro = c.id_centro
-      WHERE ic.cantidad_actual <= 0
+      WHERE ic.cantidad_actual <= 0${filtro}
       ORDER BY c.nombre_centro
     `);
     const advertencias = await prisma.$queryRawUnsafe(`
@@ -130,14 +132,14 @@ app.get('/api/v1/dashboard/alerts', auth, async (req, res) => {
       FROM inventario_centros ic
       JOIN productos p ON ic.id_producto = p.id_producto
       JOIN centros c ON ic.id_centro = c.id_centro
-      WHERE ic.cantidad_actual > 0 AND ic.cantidad_actual <= ic.stock_minimo AND ic.stock_minimo > 0
+      WHERE ic.cantidad_actual > 0 AND ic.cantidad_actual <= ic.stock_minimo AND ic.stock_minimo > 0${filtro}
       ORDER BY c.nombre_centro
     `);
     res.json({
       criticas: criticas.map(c => ({ id: c.id_centro + '-' + c.id_producto, centro: c.nombre_centro, producto: c.nombre_producto, cantidad_actual: c.cantidad_actual })),
       advertencias: advertencias.map(a => ({ id: a.id_centro + '-' + a.id_producto, centro: a.nombre_centro, producto: a.nombre_producto, cantidad_actual: a.cantidad_actual }))
     });
-  } catch(e) { res.status(500).json({ error: e.message }); }
+  } catch(e) { res.status(500).json({ error: 'Error interno' }); }
 });
 
 // Dashboard — Desviaciones (mermas de inventario: registrado vs físico)
