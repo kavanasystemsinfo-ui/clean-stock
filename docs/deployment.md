@@ -98,7 +98,7 @@ certbot renew --dry-run
 ### Actualizar la aplicación
 
 ```bash
-cd /root/clean_ops
+cd /root/clean-stock
 git pull
 docker compose up -d --build
 ```

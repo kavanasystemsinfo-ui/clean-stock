@@ -24,13 +24,15 @@ CleanStock permite a supervisores y personal de control ver qué producto se ha 
 
 | Capa | Tecnología |
 |------|------------|
-| **Frontend** | React + Vite + TypeScript (dashboard supervisor) |
+| **Frontend** | React + Vite + TypeScript + Socket.io (dashboard supervisor) |
 | **Backend** | Node.js + Express + Prisma ORM |
 | **Database** | PostgreSQL 16 (Docker) |
-| **Auth** | JWT + bcrypt |
+| **Auth** | JWT + bcrypt + Zod (validación centralizada) |
 | **Email** | Nodemailer + Gmail SMTP |
 | **Infra** | Docker Compose + nginx + Let's Encrypt |
 | **Hosting** | VPS Hetzner (2 vCPU, 3.7 GB RAM) |
+| **CI/CD** | GitHub Actions (tests + Postgres en cada push) |
+| **Tests** | Jest + Supertest (26 tests de integración) |
 
 ---
 
