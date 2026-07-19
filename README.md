@@ -86,6 +86,13 @@ JWT_SECRET=*** <kavanasystems.info@gmail.com>
 | `POST` | `/api/v1/auth/login` | Login (email o username) |
 | `POST` | `/api/v1/auth/register-empresa` | Registro empresa + email credenciales |
 
+### Demo
+| Email | Contraseña | Rol |
+|-------|-----------|-----|
+| `supervisor.demo@cleanstock.com` | `demo1234` | Supervisor (Zaira García, client `Limpiezas Valencia Centro`) |
+| `admin@kavana.com` | `CleanStock2026!` | Admin del sistema |
+| `supervisor@kavana.com` | `CleanStock2026!` | Supervisor general |
+
 ### Dashboard (supervisor)
 | Método | Ruta | Descripción |
 |--------|------|-------------|
