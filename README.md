@@ -16,7 +16,7 @@ CleanStock permite a supervisores y personal de control ver qué producto se ha 
 | 🔧 Admin panel | `https://cleanstock.kavanasystems.com/admin/` |
 | 💚 Health | `https://cleanstock.kavanasystems.com/api/v1/health` |
 
-> **Nota de alcance:** No hay app móvil del limpiador. El registro de consumos se hace desde el panel del supervisor (responsive, usable desde el móvil del encargado). Ver `docs/REUNION_DIRECTIVA_2026-07-15.md` para el rediseño de visión de negocio.
+> **Nota de alcance:** El registro de consumos lo hace el supervisor desde el panel web. El **responsable de centro** usa la **app móvil** (`/`, puerto 4000) para hacer **recuento físico** del stock de sus centros asignados. Los limpiadores **no usan ninguna app** (modelo de negocio descartado por fricción de usabilidad). Ver `docs/ESTADO_ACTUAL_CLEANSTOCK.md`.
 
 ---
 
@@ -51,7 +51,7 @@ clean-stock/
 │   ├── schema.prisma       # Modelo de datos (10 modelos)
 │   └── seed.js             # Datos de ejemplo
 ├── dashboard/              # Panel supervisor (React + Vite + TS)
-├── mobile/                 # App legacy (no usada en producción — ver nota de alcance)
+├── mobile/               # App del responsable de centro (PWA React, recuento físico) — en producción (:4000)
 ├── landing/                # Página de aterrizaje (HTML)
 ├── docker-compose.yml      # Infraestructura completa
 ├── Dockerfile.api          # Build de la API
