@@ -13,6 +13,16 @@ export interface ProductoInventario {
   }
 }
 
+export interface CentroActivo {
+  id_centro: number
+  nombre_centro: string
+  direccion?: string
+}
+
+export function isAuthenticated(): boolean {
+  return !!getAccessToken()
+}
+
 // Token helpers
 function getAccessToken(): string | null { return localStorage.getItem('access_token') }
 function getRefreshToken(): string | null { return localStorage.getItem('refresh_token') }
@@ -62,8 +72,8 @@ export async function login(email: string, password: string) {
 
 export function logout(): void { clearTokens() }
 
-export async function getCentroActivo() {
-  const res = await apiFetch<{ asignacion: { centro: { id_centro: number; nombre_centro: string; direccion?: string } } }>('/asignaciones/active')
+export async function getCentroActivo(): Promise<CentroActivo> {
+  const res = await apiFetch<{ asignacion: { centro: CentroActivo } }>('/asignaciones/active')
   return res.asignacion.centro
 }
 
