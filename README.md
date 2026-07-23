@@ -1,174 +1,175 @@
-# CleanStock
+# CleanStock — SaaS de Trazabilidad de Stock para Limpieza Profesional
 
-**SaaS de trazabilidad de consumo para encargados de limpieza con centros descentralizados**
-
-CleanStock permite a supervisores y personal de control ver qué producto se ha consumido, dónde y cuándo, con alertas de stock mínimo y desviaciones por centro. **El consumo lo registra el supervisor o personal adecuado** (desde el panel web, también accesible desde móvil) — los limpiadores **no usan ninguna app**.
-
----
-
-## 🚀 Demo
-
-| Sitio | URL |
-|-------|-----|
-| 🌐 Landing | `https://cleanstock.kavanasystems.com/welcome/` |
-| 📝 Registro (30 días gratis) | `https://cleanstock.kavanasystems.com/registro/` |
-| 📊 Panel supervisor | `https://cleanstock.kavanasystems.com/` |
-| 🔧 Admin panel | `https://cleanstock.kavanasystems.com/admin/` |
-| 💚 Health | `https://cleanstock.kavanasystems.com/api/v1/health` |
-
-> **Nota de alcance:** El registro de consumos lo hace el supervisor desde el panel web. El **responsable de centro** usa la **app móvil** (`/`, puerto 4000) para hacer **recuento físico** del stock de sus centros asignados. Los limpiadores **no usan ninguna app** (modelo de negocio descartado por fricción de usabilidad). Ver `docs/ESTADO_ACTUAL_CLEANSTOCK.md`.
+[![Tests](https://img.shields.io/badge/tests-26%20passing-brightgreen)](https://github.com/kavanasystemsinfo-ui/clean-stock)
+[![Node](https://img.shields.io/badge/Node-20-339933?logo=nodedotjs)](https://nodejs.org)
+[![Express](https://img.shields.io/badge/Express-4-000000?logo=express)](https://expressjs.com)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)](https://www.postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma)](https://www.prisma.io)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker)](docker-compose.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 ---
 
-## 🛠️ Stack
+## ⚡ 30 Segundos: ¿Qué es y para qué sirve?
 
-| Capa | Tecnología |
-|------|------------|
-| **Frontend** | React + Vite + TypeScript + Socket.io (dashboard supervisor) |
-| **Backend** | Node.js + Express + Prisma ORM |
-| **Database** | PostgreSQL 16 (Docker) |
-| **Auth** | JWT + bcrypt + Zod (validación centralizada) |
-| **Email** | Nodemailer + Gmail SMTP |
-| **Infra** | Docker Compose + nginx + Let's Encrypt |
-| **Hosting** | VPS Hetzner (2 vCPU, 3.7 GB RAM) |
-| **CI/CD** | GitHub Actions (tests + Postgres en cada push) |
-| **Tests** | Jest + Supertest (26 tests de integración) |
+**Problema que resuelve:** Las empresas de limpieza con centros descentralizados (colegios, oficinas, hospitales) pierden hasta un 30% de su presupuesto en materiales porque no saben qué producto se consume en cada centro, ni si el gasto se ajusta a lo presupuestado. Los supervisores descubren las desviaciones semanas después, cuando ya no pueden corregirlas.
+
+**Solución:** CleanStock es un SaaS B2B que permite a supervisores ver en tiempo real el consumo de productos por centro, compararlo con el presupuesto y recibir alertas de desviaciones. El **responsable de centro** hace recuento físico del stock desde una app móvil. El **supervisor** controla todo desde un dashboard web.
+
+**Stack:** Node.js + Express · React + Vite · PostgreSQL 16 · Prisma ORM · Docker
+
+**Nota sobre el proceso de desarrollo:** Este proyecto fue diseñado y dirigido por un arquitecto de software. Las decisiones arquitectónicas y de producto responden a criterio técnico propio. La implementación se realizó con asistencia de herramientas de IA como par de programación.
+
+**[🎯 Live Demo →](https://cleanstock.kavanasystems.com)**
 
 ---
 
-## 📁 Estructura
+## 📖 Índice
+
+1. [Arquitectura](#-arquitectura)
+2. [Decisiones clave](#-decisiones-clave)
+3. [Stack tecnológico](#-stack-tecnológico)
+4. [Cómo ejecutar](#-cómo-ejecutar)
+5. [Estado del proyecto](#-estado-del-proyecto)
+6. [Documentación](#-documentación)
+
+---
+
+## 🏗️ Arquitectura
 
 ```
-clean-stock/
-├── src/
-│   ├── app.js              # API Express (todo en un archivo, 38 endpoints)
-│   ├── server.js           # Entry point
-│   ├── lib/logger.js       # Logger estructurado
-│   ├── controllers/        # costeController, deviationController, purchaseController
-│   └── __tests__/
-│       └── api.test.js     # 26 tests de integración
-├── prisma/
-│   ├── schema.prisma       # Modelo de datos (10 modelos)
-│   └── seed.js             # Datos de ejemplo
-├── dashboard/              # Panel supervisor (React + Vite + TS)
-├── mobile/               # App del responsable de centro (PWA React, recuento físico) — en producción (:4000)
-├── landing/                # Página de aterrizaje (HTML)
-├── docker-compose.yml      # Infraestructura completa
-├── Dockerfile.api          # Build de la API
-└── jest.config.js          # Configuración de tests
+RESPONSABLE DE CENTRO          SUPERVISOR
+┌──────────────────┐          ┌──────────────────┐
+│  App Móvil        │          │  Dashboard Web   │
+│  (Recuento stock) │          │  (Control total)  │
+└────────┬─────────┘          └────────┬─────────┘
+         │                             │
+         └──────────────┬──────────────┘
+                        ▼
+              ┌──────────────────┐
+              │  API REST        │
+              │  Express + Prisma│
+              │  + Auth JWT      │
+              └────────┬─────────┘
+                       │
+              ┌────────▼─────────┐
+              │  PostgreSQL 16   │
+              │  + client_id     │
+              │  (multi-tenant)  │
+              └──────────────────┘
 ```
+
+**Flujo de negocio:**
+1. **Responsable de centro** hace recuento físico del stock desde la app móvil
+2. Los datos se envían a la API y se comparan con el presupuesto del centro
+3. **Supervisor** ve en el dashboard: consumo real vs presupuestado, alertas de desviación, histórico por centro
+
+> **Modelo de negocio:** Se descartó la app para limpiadores (fricción de usabilidad). El recuento lo hace personal de confianza del cliente. [Ver decisión →](docs/adr/001-multi-tenant-feature-flags.md)
 
 ---
 
-## 🚀 Despliegue (VPS)
+## 🧠 Decisiones clave
+
+| Decisión | Alternativas | Elegida | Por qué |
+|----------|-------------|---------|---------|
+| **Multi-tenancy** | Schema-per-tenant, instancias separadas | Shared-schema + `client_id` | Migraciones simples, escalable a cientos de clientes |
+| **Feature flags** | Tablas separadas por plan | JSON en tabla clients | Sin migraciones, activación instantánea |
+| **Framework** | NestJS, Fastify | Express | Suficiente para el dominio, sin over-engineering |
+| **ORM** | SQL directo, Drizzle | Prisma | Tipado seguro, migrations automáticas |
+| **App limpiadores** | App nativa | ❌ **Descartada** | Fricción de usabilidad en operarios |
+| **Infraestructura** | Serverless, Railway | VPS Docker | Menor coste para MVP, migrable después |
+
+---
+
+## 🛠️ Stack tecnológico
+
+| Capa | Tecnología | Justificación |
+|------|-----------|---------------|
+| **Backend** | Node.js + Express | Madurez, ecosistema, simplicidad para el dominio |
+| **ORM** | Prisma 6 | Tipado seguro, migrations automáticas, DX |
+| **Frontend** | React 18 + Vite + TypeScript | Renderizado rápido, tooling moderno |
+| **App Móvil** | React (web mobile responsive) | Misma codebase que el dashboard |
+| **BD** | PostgreSQL 16 | JSONB, rendimiento, madurez |
+| **Auth** | JWT + bcrypt + Zod | Sin dependencias externas, validación centralizada |
+| **Tests** | Jest + Supertest | 26 tests de integración |
+| **Infra** | Docker Compose + nginx + Let's Encrypt | VPS Hetzner, despliegue reproducible |
+| **CI/CD** | GitHub Actions | Tests automáticos en cada push |
+
+---
+
+## 🚀 Cómo ejecutar
 
 ```bash
-git clone git@github.com:kavanasystemsinfo-ui/clean-stock.git
+# 1. Clonar
+git clone https://github.com/kavanasystemsinfo-ui/clean-stock.git
 cd clean-stock
+
+# 2. Variables de entorno
 cp .env.example .env
-# Editar .env con credenciales reales
+# Editar .env con tus credenciales
+
+# 3. Docker (todo el stack)
 docker compose up -d
-# Configurar nginx + SSL (certbot)
+
+# 4. Tests
+npm test                # 26 tests de integración
 ```
 
-### Variables de entorno
-
-```env
-DATABASE_URL=postgresql://kavana:***@db:5432/kavana_cleanstock
-JWT_SECRET=*** <kavanasystems.info@gmail.com>
-```
+**Demo online:** https://cleanstock.kavanasystems.com  
+**API Health:** https://cleanstock.kavanasystems.com/api/v1/health
 
 ---
 
-## 📚 API
+## 📊 Estado del proyecto
 
-### Auth
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `POST` | `/api/v1/auth/login` | Login (email o username) |
-| `POST` | `/api/v1/auth/register-empresa` | Registro empresa + email credenciales |
+### ✅ Implementado y verificable
+- [x] Autenticación multi-tenant con JWT + bcrypt
+- [x] Dashboard supervisor con consumo por centro
+- [x] App móvil para recuento físico de stock
+- [x] Feature flags por cliente (JSON en BD)
+- [x] Alertas de stock mínimo y desviaciones
+- [x] 26 tests de integración (Jest + Supertest)
+- [x] CI/CD (GitHub Actions)
+- [x] Despliegue Docker en VPS con HTTPS
 
-### Demo
-| Email | Contraseña | Rol |
-|-------|-----------|-----|
-| `supervisor.demo@cleanstock.com` | `demo1234` | Supervisor (Zaira García, client `Limpiezas Valencia Centro`) |
-| `admin@kavana.com` | `CleanStock2026!` | Admin del sistema |
-| `supervisor@kavana.com` | `CleanStock2026!` | Supervisor general |
-
-### Dashboard (supervisor)
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/api/v1/dashboard` | Stats generales |
-| `GET` | `/api/v1/dashboard/consumption` | Consumos con filtros |
-| `GET` | `/api/v1/dashboard/alerts` | Alertas de stock crítico/bajo |
-| `GET` | `/api/v1/dashboard/deviations` | Desviación stock registrado vs físico |
-| `GET` | `/api/v1/dashboard/costes` | Coste € por centro vs presupuesto |
-
-### CRUD (supervisor)
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET/POST` | `/api/v1/categorias` | Categorías |
-| `GET/POST` | `/api/v1/productos` | Productos |
-| `GET/POST` | `/api/v1/centros` | Centros de trabajo |
-| `GET/POST` | `/api/v1/empleados` | Empleados |
-| `GET/POST` | `/api/v1/inventario` | Stock por centro |
-| `POST` | `/api/v1/inventario/reponer` | Reponer producto |
-| `GET/POST` | `/api/v1/consumos` | Historial de consumos (registrado por supervisor) |
-| `GET/POST` | `/api/v1/incidencias` | Incidencias |
-
-### Registro de consumo (desde el panel del supervisor)
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/api/v1/stock/inventory?centro=X` | Inventario del centro |
-| `POST` | `/api/v1/stock/consume` | Registrar consumo (panel del supervisor) |
-
-### Admin (super admin)
-| Método | Ruta | Descripción |
-|--------|------|-------------|
-| `GET` | `/api/v1/admin/clientes` | Listar empresas |
-| `GET/PUT` | `/api/v1/admin/clientes/:id` | Detalle/editar cliente |
-| `GET` | `/api/v1/admin/stats` | Estadísticas SaaS |
-
-### Health
-| Método | Ruta |
-|--------|------|
-| `GET` | `/api/v1/health` |
+### 🚧 En desarrollo
+- [ ] Migración a infraestructura serverless (Railway/Render)
+- [ ] Informes avanzados exportables (PDF/CSV)
+- [ ] Múltiples idiomas
+- [ ] App nativa para responsables de centro (React Native)
 
 ---
 
-## 🧪 Tests (TDD)
+## 📚 Documentación
 
-26 tests de integración (Jest) que verifican auth, CRUD, scoping multi-tenant y escritura:
+### Para negocio
+| Documento | Contenido |
+|-----------|-----------|
+| [Estado Actual](docs/commercial/00_current-status.md) | Situación del producto y modelo de negocio |
+| [Plan de Mejoras](docs/commercial/01_improvement-plan.md) | Roadmap de funcionalidades enterprise |
+| [Reunión Directiva](docs/commercial/02_board-meeting.md) | Acta de decisión sobre cambio de modelo |
 
-```bash
-npm test
-# 26 passed, 26 total
-```
-
----
-
-## 💰 Planes
-
-| Característica | Basic (9€/mes) | Pro (29€/mes) |
-|----------------|----------------|----------------|
-| Empleados | 5 usuarios | Ilimitados |
-| Centros | 3 centros | Ilimitados |
-| Historial | 60 días | Ilimitado |
-| Exportar datos | ❌ | ✅ |
-| Notificaciones | ❌ | ✅ |
+### Para arquitectura / decisiones técnicas
+| Documento | Contenido |
+|-----------|-----------|
+| [ADR-001: Multi-Tenant + Feature Flags](docs/adr/001-multi-tenant-feature-flags.md) | Alternativas evaluadas y decisiones |
+| [Arquitectura Técnica](docs/technical/01_architecture-spec.md) | Especificación completa del sistema |
+| [Guía de Despliegue](docs/technical/02_deployment.md) | Docker, nginx, VPS |
+| [Roadmap Interno](docs/technical/03_internal-roadmap.md) | Plan de desarrollo técnico |
 
 ---
 
-## ⚠️ Notas técnicas
+## 🔒 Seguridad
 
-- **Supervisor:** login con email, menú: Dashboard, Empleados, Centros, Inventario, Incidencias, Desviaciones, Costes. Registra consumos y repone stock.
-- **Empleado (limpiador):** figura en el modelo de datos (`Usuario.rol='limpiador'`, `AsignacionPersonal`) para trazabilidad de quién está asignado a qué centro, **pero no usa ninguna app** — su consumo lo registra el supervisor.
-- **Admin:** `https://cleanstock.kavanasystems.com/admin/` usuario `jorge`
-- **Email:** usa Gmail App Password (verificación 2 pasos → App Passwords)
-- **Registro:** crea empresa + centro + usuario supervisor + trial 30d + email credenciales
+Ver [`SECURITY.md`](SECURITY.md).
 
 ---
 
-## 🆘 Soporte
+## 📄 Licencia
 
-kavanasystems.info@gmail.com
+MIT © [Jorge Adán Rodríguez](https://github.com/kavanasystemsinfo-ui)
+
+---
+
+*Última actualización: 2026-07-23*
