@@ -8,7 +8,7 @@
 |---------|-------|
 | **Archivos de código** | 34 |
 | **Líneas de código** | ~2.350 |
-| **Tests** | 26 (Jest + Supertest) |
+| **Tests** | 26 | API REST, autenticación JWT, aislamiento multi-tenant, reglas de inventario |
 | **Cobertura** | ~70% (integración) |
 | **Commits** | +60 |
 | **Lenguajes** | JavaScript, TypeScript, SQL, CSS, YAML |
